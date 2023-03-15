@@ -7,13 +7,14 @@
 #include "EnhancedInput/Public/EnhancedInputComponent.h"
 #include "EnhancedInput//Public/EnhancedInputSubsystems.h"
 #include "EnhancedInput/Public/InputActionValue.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 
 void ATantrumnPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if(InputComponent)
+	if (InputComponent)
 	{
 		// Prep Enhanced Input subsystem for mappings
 		if (ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
@@ -32,20 +33,50 @@ void ATantrumnPlayerController::BeginPlay()
 		if (UEnhancedInputComponent* EIPlayerComponent = Cast<UEnhancedInputComponent>(InputComponent))
 		{
 			// Enhanced Input Action Bindings
+
+			// Character locomotion
 			EIPlayerComponent->BindAction(InputActions->InputMove,
 				ETriggerEvent::Triggered,
 				this,
 				&ATantrumnPlayerController::RequestMove);
-			
+
+			// Character Look
 			EIPlayerComponent->BindAction(InputActions->InputLook,
 				ETriggerEvent::Triggered,
 				this, &
 				ATantrumnPlayerController::RequestLook);
-			
+
+			// Character Jump
 			EIPlayerComponent->BindAction(InputActions->InputJump,
 				ETriggerEvent::Triggered,
 				this,
 				&ATantrumnPlayerController::RequestJump);
+			EIPlayerComponent->BindAction(InputActions->InputJump,
+				ETriggerEvent::Completed,
+				this,
+				&ATantrumnPlayerController::EndRequestJump);
+
+			// Character Crouch
+			EIPlayerComponent->BindAction(InputActions->InputCrouch,
+                ETriggerEvent::Triggered,
+                this,
+                &ATantrumnPlayerController::RequestCrouch);
+
+			EIPlayerComponent->BindAction(InputActions->InputCrouch,
+				ETriggerEvent::Completed,
+				this,
+				&ATantrumnPlayerController::EndRequestCrouch);
+
+			// Character Sprint
+			EIPlayerComponent->BindAction(InputActions->InputSprint,
+				ETriggerEvent::Triggered,
+				this,
+				&ATantrumnPlayerController::RequestSprint);
+
+			EIPlayerComponent->BindAction(InputActions->InputSprint,
+				ETriggerEvent::Completed,
+				this,
+				&ATantrumnPlayerController::EndRequestSprint);
 		}
 	}
 }
@@ -101,19 +132,67 @@ void ATantrumnPlayerController::RequestLook(const FInputActionValue& ActionValue
 
 void ATantrumnPlayerController::RequestJump()
 {
-	ACharacter* ControlledChar = GetCharacter();
-	if (ControlledChar)
+	if (ACharacter* ControlledChar = GetCharacter())
 	{
 		ControlledChar->Jump();
 	}
 }
 
+void ATantrumnPlayerController::EndRequestJump()
+{
+	if (ACharacter* ControlledChar = GetCharacter())
+	{
+		ControlledChar->StopJumping();
+	}
+}
+
+void ATantrumnPlayerController::RequestCrouch()
+{
+	if (ACharacter* ControlledChar = GetCharacter())
+	{
+		ControlledChar->Crouch();
+	}
+}
+
+void ATantrumnPlayerController::EndRequestCrouch()
+{
+	if (ACharacter* ControlledChar = GetCharacter())
+	{
+		ControlledChar->UnCrouch();
+	}
+}
+
+void ATantrumnPlayerController::RequestSprint()
+{
+	if (ACharacter* ControlledChar = GetCharacter())
+	{
+		ControlledChar->GetCharacterMovement()->MaxWalkSpeed = WalkSpeed * SprintModifier;
+	}
+}
+
+void ATantrumnPlayerController::EndRequestSprint()
+{
+	if (ACharacter* ControlledChar = GetCharacter())
+	{
+		ControlledChar->GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
+	}
+}
+
 void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	//TODO update for enhanced input
 	if (InputComponent)
 	{
-		InputComponent->ClearActionBindings();
+		// Prep Enhanced Input subsystem for mappings
+		if (ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
+		{
+			if (UEnhancedInputLocalPlayerSubsystem* InputSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+			{
+				if (!InputMapping.IsNull())
+				{
+					InputSystem->ClearAllMappings();
+				}
+			}
+		}
 	}
 }
 

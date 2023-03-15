@@ -26,10 +26,31 @@ public:
 	void RequestJump();
 
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
+	void EndRequestJump();
+
+	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
+	void RequestCrouch();
+
+	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
+	void EndRequestCrouch();
+
+	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
+	void RequestSprint();
+
+	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
+	void EndRequestSprint();
+	
+	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestMove(const FInputActionValue& ActionValue);
 
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestLook(const FInputActionValue& ActionValue);
+
+	UPROPERTY(BlueprintReadWrite, Category = "CharacterMovement")
+	float SprintModifier = 2.0f;
+
+	UPROPERTY(BlueprintReadWrite, Category = "CharacterMovement")
+	float WalkSpeed = 600.0f;
 /*
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestMoveX(float AxisValue);
