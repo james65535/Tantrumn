@@ -6,6 +6,7 @@
 #include "InputActionValue.h"
 #include "GameFramework/PlayerController.h"
 #include "EnhancedInput/Public/InputMappingContext.h"
+#include "Sound/SoundCue.h"
 #include "TantrumnPlayerController.generated.h"
 
 /**
@@ -13,12 +14,18 @@
  */
 
 
+class ATantrumnGameModeBase;
+class UUserWidget;
+
 UCLASS()
 class TANTRUMN_API ATantrumnPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
 public:
+
+protected:
+
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
@@ -26,25 +33,34 @@ public:
 	void RequestJump();
 
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
-	void EndRequestJump();
+	void RequestStopJump();
 
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestCrouch();
 
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
-	void EndRequestCrouch();
+	void RequestStopCrouch();
 
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestSprint();
 
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
-	void EndRequestSprint();
+	void RequestStopSprint();
 	
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestMove(const FInputActionValue& ActionValue);
 
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestLook(const FInputActionValue& ActionValue);
+
+	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
+	void RequestThrowObject(const FInputActionValue& ActionValue);  // TODO update these
+	
+	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
+	void RequestPullObject();  // TODO update these
+
+	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
+	void RequestStopPullObject();  // TODO update these
 
 	UPROPERTY(BlueprintReadWrite, Category = "CharacterMovement")
 	float SprintModifier = 2.0f;
@@ -71,8 +87,7 @@ public:
 	UPROPERTY(EditAnywhere,Category = "CharacterMovement")
 	float BaseLookYawRate = 90.0f;
 
-protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enhanced Input")
+	UPROPERTY(BlueprintReadOnly, Category = "Enhanced Input")
 	TSoftObjectPtr<UInputMappingContext> InputMapping;	
 
 	//class UInputMappingContext* InputMapping;
@@ -80,5 +95,31 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enhanced Input")
 	class UTantrumnInputConfigRegistry* InputActions;
 	
+	// UPROPERTY(EditAnywhere, Category = "HUD")
+	// TSubclassOf<class UUserWidget> HUDClass;
+	
+	//UPROPERTY()
+	//UUserWidget* HUDWidget;
+
+	/** Base lookup rate, in deg/sec.  Other scaling may affect final lookup rate */
+	UPROPERTY(EditAnywhere, Category = "Look")
+	float BaseLookUpRate = 90.0f;
+
+	/** Base lookright rate, in deg/sec.  Other scaling may affect final lookup rate */
+	UPROPERTY(EditAnywhere, Category = "Look")
+	float BaseLookRightRate = 90.0f;
+
+	/** Sound Cue for Jumping Sound */
+	UPROPERTY(EditAnywhere, Category = "Sound")
+	USoundCue* JumpSound = nullptr;
+
+	//ATantrumnGameModeBase* GameModeRef;
+
+	// Used to determine flick of axis
+	// float LastDelta = 0.0f;
+	float LastAxis = 0.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	float FlickThreshold = 0.75;
 	
 };

@@ -2,6 +2,8 @@
 
 
 #include "TantrumnPlayerController.h"
+
+#include "TantrumnCharacterBase.h"
 #include "GameFramework/Character.h"
 #include "TantrumnInputConfigRegistry.h"
 #include "EnhancedInput/Public/EnhancedInputComponent.h"
@@ -9,6 +11,11 @@
 #include "EnhancedInput/Public/InputActionValue.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
+static TAutoConsoleVariable<bool> CVarDisplayLaunchInputDelta(
+	TEXT("Tantrumn.Character.Debug.DisplayLaunchInputdelta"),
+	false,
+	TEXT("Display Launch Input Delta"),
+	ECVF_Default);
 
 void ATantrumnPlayerController::BeginPlay()
 {
@@ -51,10 +58,11 @@ void ATantrumnPlayerController::BeginPlay()
 				ETriggerEvent::Triggered,
 				this,
 				&ATantrumnPlayerController::RequestJump);
+			
 			EIPlayerComponent->BindAction(InputActions->InputJump,
 				ETriggerEvent::Completed,
 				this,
-				&ATantrumnPlayerController::EndRequestJump);
+				&ATantrumnPlayerController::RequestStopJump);
 
 			// Character Crouch
 			EIPlayerComponent->BindAction(InputActions->InputCrouch,
@@ -65,7 +73,7 @@ void ATantrumnPlayerController::BeginPlay()
 			EIPlayerComponent->BindAction(InputActions->InputCrouch,
 				ETriggerEvent::Completed,
 				this,
-				&ATantrumnPlayerController::EndRequestCrouch);
+				&ATantrumnPlayerController::RequestStopCrouch);
 
 			// Character Sprint
 			EIPlayerComponent->BindAction(InputActions->InputSprint,
@@ -76,7 +84,24 @@ void ATantrumnPlayerController::BeginPlay()
 			EIPlayerComponent->BindAction(InputActions->InputSprint,
 				ETriggerEvent::Completed,
 				this,
-				&ATantrumnPlayerController::EndRequestSprint);
+				&ATantrumnPlayerController::RequestStopSprint);
+
+			// Character Throw
+			EIPlayerComponent->BindAction(InputActions->InputThrowObject,
+				ETriggerEvent::Triggered,
+				this,
+				&ATantrumnPlayerController::RequestThrowObject);
+
+			// Character Pull
+			EIPlayerComponent->BindAction(InputActions->InputPullObject,
+				ETriggerEvent::Triggered,
+				this,
+				&ATantrumnPlayerController::RequestPullObject);  // TODO Update
+
+			EIPlayerComponent->BindAction(InputActions->InputPullObject,
+				ETriggerEvent::Completed,
+				this,
+				&ATantrumnPlayerController::RequestStopPullObject);  // TODO Update
 		}
 	}
 }
@@ -138,7 +163,7 @@ void ATantrumnPlayerController::RequestJump()
 	}
 }
 
-void ATantrumnPlayerController::EndRequestJump()
+void ATantrumnPlayerController::RequestStopJump()
 {
 	if (ACharacter* ControlledChar = GetCharacter())
 	{
@@ -154,7 +179,7 @@ void ATantrumnPlayerController::RequestCrouch()
 	}
 }
 
-void ATantrumnPlayerController::EndRequestCrouch()
+void ATantrumnPlayerController::RequestStopCrouch()
 {
 	if (ACharacter* ControlledChar = GetCharacter())
 	{
@@ -170,7 +195,56 @@ void ATantrumnPlayerController::RequestSprint()
 	}
 }
 
-void ATantrumnPlayerController::EndRequestSprint()
+void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& ActionValue)
+{
+	const float AxisValue = ActionValue.Get<float>();  // TODO check this works as intended
+	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
+	{
+		if (TantrumnCharacterBase->CanThrowObject())
+		{
+			float CurrentDelta = AxisValue - LastAxis; // TODO this might now be right
+
+			// Debug
+			if (CVarDisplayLaunchInputDelta->GetBool())
+			{
+				if (fabs(CurrentDelta) > 0.0f)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Axis: %f CurrentDelta: %f"), AxisValue, LastAxis);
+				}
+			}
+			LastAxis = AxisValue;
+			const bool IsFlick = fabs(CurrentDelta) > FlickThreshold;
+			if (IsFlick)
+			{
+				TantrumnCharacterBase->RequestThrowObject();
+			}
+		}
+		else
+		{
+			LastAxis = 0.0f;
+		}
+	}
+}
+
+
+void ATantrumnPlayerController::RequestPullObject()
+{
+	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
+	{
+		TantrumnCharacterBase->RequestPullObjectStart();
+	}
+}
+
+void ATantrumnPlayerController::RequestStopPullObject()
+{
+	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
+	{
+		TantrumnCharacterBase->RequestPullObjectStop();
+	}
+}
+
+
+void ATantrumnPlayerController::RequestStopSprint()
 {
 	if (ACharacter* ControlledChar = GetCharacter())
 	{
