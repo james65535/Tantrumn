@@ -37,12 +37,6 @@ public:
 	// Called when Landed
 	virtual void Landed(const FHitResult& Hit) override;
 
-	virtual 
-
-	// Throwing module these were added
-	// void RequestSprintStart();
-	// void RequestSprintEnd();
-
 	void RequestThrowObject();
 	void RequestPullObjectStart();
 	void RequestPullObjectStop();

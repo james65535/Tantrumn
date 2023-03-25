@@ -22,6 +22,7 @@ AThrowableActor::AThrowableActor()
 		ProjectileMovementComponent->MaxSpeed = 3000.0f;
 		ProjectileMovementComponent->bShouldBounce = true;
 		ProjectileMovementComponent->Bounciness = 0.3f;
+		ProjectileMovementComponent->bInterpMovement = true;
 	}
 }
 
