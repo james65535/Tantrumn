@@ -2,20 +2,18 @@
 
 
 #include "TantrumnCharacterBase.h"
-
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "TantrumnPlayerController.h"
 #include "TantrumnCharMovementComponent.h"
 #include "ThrowableActor.h"
-
 #include "DrawDebugHelpers.h"
 
 constexpr int CVSphereCastPlayerView = 0;
 constexpr int CVSphereCastActorTransform = 1;
 constexpr int CVLineCastActorTransform = 2;
 
-// Add cvars for debug
+// CVars for visual debugging pulling action in runtime
 static TAutoConsoleVariable<int> CVarTraceMode(
 	TEXT("Tantrumn.Character.Debug.TraceMode"),
 	0,
@@ -36,22 +34,24 @@ static TAutoConsoleVariable<bool> CVarDisplayThrowVelocity(
 	TEXT("Display Throw Velocity"),
 	ECVF_Default);
 
-// Sets default values
-ATantrumnCharacterBase::ATantrumnCharacterBase(const FObjectInitializer& ObjectInitializer)
-	: Super( ObjectInitializer.SetDefaultSubobjectClass<UTantrumnCharMovementComponent>( ACharacter::CharacterMovementComponentName ) )
+// Instantiate character defaults
+ATantrumnCharacterBase::ATantrumnCharacterBase(
+	const FObjectInitializer& ObjectInitializer) : Super(
+		ObjectInitializer.SetDefaultSubobjectClass<UTantrumnCharMovementComponent>(
+			ACharacter::CharacterMovementComponentName ) )
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-
+	// Setup reference for custom character movement component
+	TantrumnCharMoveComp = Cast<UTantrumnCharMovementComponent>(GetCharacterMovement());
 	
-
+ 	// Set this character to call Tick() every frame.
+ 	// You can turn this off to improve performance if you don't need it.
+	PrimaryActorTick.bCanEverTick = true;
 }
 
 // Called when the game starts or when spawned
 void ATantrumnCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
 // Called every frame
@@ -59,12 +59,13 @@ void ATantrumnCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	UpdateStun();
-	if (bIsStunned)
+	// Check for stun as it will impact character movement
+	if (TantrumnCharMoveComp->IsStunned())
 	{
 		return;
 	}
 
+	// Check for throw state in order to use appropriate animation montage
 	if (CharacterThrowState == ECharacterThrowState::Throwing)
 	{
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
@@ -76,7 +77,9 @@ void ATantrumnCharacterBase::Tick(float DeltaTime)
 			}
 		}
 	}
-	else if (CharacterThrowState == ECharacterThrowState::None || CharacterThrowState == ECharacterThrowState::RequestingPull)
+	// If not throwing then let player perform a hit check to see if they can pull an object
+	else if (CharacterThrowState == ECharacterThrowState::None ||
+		CharacterThrowState == ECharacterThrowState::RequestingPull)
 	{
 		switch (CVarTraceMode->GetInt())
 		{
@@ -102,7 +105,34 @@ void ATantrumnCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerIn
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
 
-// Called when landed
+void ATantrumnCharacterBase::RequestSprintStart()
+{
+	TantrumnCharMoveComp->DoSprintStart();
+	
+}
+
+void ATantrumnCharacterBase::RequestSprintEnd()
+{
+	TantrumnCharMoveComp->DoSprintEnd();
+}
+
+void ATantrumnCharacterBase::RequestStunStart(const float DurationMultiplier)
+{
+	if(!TantrumnCharMoveComp->OnStunStart.IsBoundToObject(this))
+	{
+		OnStunEndHandle = TantrumnCharMoveComp->OnStunEnd.AddUObject(this, &ATantrumnCharacterBase::OnStunEnd);
+	}
+	TantrumnCharMoveComp->DoStun(DurationMultiplier);
+}
+
+void ATantrumnCharacterBase::OnStunEnd() const
+{
+	TantrumnCharMoveComp->OnStunEnd.Remove(OnStunEndHandle);
+	// TODO Add stun end logic here
+	UE_LOG(LogTemp, Warning, TEXT("Tantrumn Character Stun Ended"))
+}
+
+// Called when landed from fall or jump
 void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);
@@ -110,14 +140,24 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 	// Apply Controller Force FeedBack and stun player if impact speed exceeds threshold
 	if(ATantrumnPlayerController* PlayerController = GetController<ATantrumnPlayerController>())
 	{
+		// Determine effects of fall based upon speed
 		const float FallImpactSpeed = FMath::Abs(GetVelocity().Z);
+		UE_LOG(LogTemp, Warning, TEXT("Character Landed with Fall Impact Speed: %f"), FallImpactSpeed);
 		if (FallImpactSpeed < MinImpactSpeed)
 		{
 			// Nothing to do, light fall
 			return;
 		}
-		else
+		else if (FallImpactSpeed >= MinImpactSpeed && FallImpactSpeed < MaxImpactSpeed)
 		{
+			// Stun the player to affect movement for a duration
+			RequestStunStart(MinImpactStunMultiplier);
+		}
+		else if (FallImpactSpeed >= MaxImpactSpeed)
+		{
+			// Stun the player to affect movement for a duration
+			RequestStunStart(MaxImpactStunMultiplier);
+			
 			// Soundcue triggers
 			if (HeavyLandSound && GetOwner())
 			{
@@ -126,14 +166,10 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 			}
 		}
 
-		
-		// Stun the player to affect movement for a duration
-		OnStunBegin(StunDuration);
-
+		// Controller Force Feedback
 		// Calculate Severity of Impact
 		const float DeltaImpact = MaxImpactSpeed - MinImpactSpeed;
 		const float FallRatio = FMath::Clamp((FallImpactSpeed - MinImpactSpeed) / DeltaImpact, 0.0f, 1.0f);
-
 		// Apply force feedback
 		const bool bAffectSmall = FallRatio <= 0.5;
 		const bool bAffectLarge = FallRatio > 0.5;
@@ -141,37 +177,6 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 			0.5f,
 			bAffectLarge, bAffectSmall,
 			bAffectLarge, bAffectSmall);
-	}
-}
-
-// Stuns player by disabling movement for a specified duration
-void ATantrumnCharacterBase::OnStunBegin(float StunLength)
-{
-	// TODO Check into custom movement mode enum
-	bIsStunned = true;
-	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
-	{
-		Movement->SetMovementMode(EMovementMode::MOVE_None);
-	}
-	GetWorldTimerManager().SetTimer(StunTimer, this, &ATantrumnCharacterBase::OnStunEnd, 1.0f,false);
-}
-
-// Removes Stun and restores movement to player
-void ATantrumnCharacterBase::UpdateStun()
-{
-	// TODO implement
-}
-
-
-// Removes Stun and restores movement to player
-void ATantrumnCharacterBase::OnStunEnd()
-{
-	bIsStunned = false;
-
-	// Gradually release stun movement constraints
-	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
-	{
-		Movement->SetMovementMode(EMovementMode::MOVE_Walking);
 	}
 }
 
@@ -192,7 +197,7 @@ void ATantrumnCharacterBase::RequestThrowObject()
 
 void ATantrumnCharacterBase::RequestPullObjectStart()
 {
-	if (!bIsStunned && CharacterThrowState == ECharacterThrowState::None)
+	if (!IsStunned() && CharacterThrowState == ECharacterThrowState::None)
 	{
 		CharacterThrowState = ECharacterThrowState::RequestingPull;
 	}
@@ -253,8 +258,16 @@ void ATantrumnCharacterBase::SphereCastPlayerView()
 	TArray<AActor*> ActorsToIgnore;
 	ActorsToIgnore.Add(this);
 
-	//bool UKismetSystemLibrary::SphereTraceSingle(const UObject* WorldContextObject, const FVector Start, const FVector End, float Radius, ETraceTypeQuery TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf, FLinearColor TraceColor, FLinearColor TraceHitColor, float DrawTime)
-	UKismetSystemLibrary::SphereTraceSingle(GetWorld(), Location, EndPos, 70.0f, UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_Visibility), false, ActorsToIgnore, DebugTrace, HitResult, true);
+	
+	UKismetSystemLibrary::SphereTraceSingle(
+		GetWorld(),
+		Location, EndPos,
+		70.0f,
+		UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_Visibility),
+		false, ActorsToIgnore,
+		DebugTrace,
+		HitResult,
+		true);
 	ProcessTraceResult(HitResult);
 
 #if ENABLE_DRAW_DEBUG
@@ -275,9 +288,20 @@ void ATantrumnCharacterBase::SphereCastActorTransform()
 	FVector EndPos = StartPos + (GetActorForwardVector() * 1000.0f);
 
 	// Sphere trace
-	EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ? EDrawDebugTrace::ForOneFrame : EDrawDebugTrace::None;
+	EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ?
+		EDrawDebugTrace::ForOneFrame : EDrawDebugTrace::None;
 	FHitResult HitResult;
-	UKismetSystemLibrary::SphereTraceSingle(GetWorld(), StartPos, EndPos, 70.0f, UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_Visibility), false, TArray<AActor*>(), DebugTrace, HitResult, true);
+	UKismetSystemLibrary::SphereTraceSingle(
+		GetWorld(),
+		StartPos,
+		EndPos,
+		70.0f,
+		UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_Visibility),
+		false,
+		TArray<AActor*>(),
+		DebugTrace,
+		HitResult,
+		true);
 	ProcessTraceResult(HitResult);
 }
 
@@ -286,11 +310,20 @@ void ATantrumnCharacterBase::LineCastActorTransform()
 	FVector StartPos = GetActorLocation();
 	FVector EndPos = StartPos + (GetActorForwardVector() * 1000.0f);
 	FHitResult HitResult;
-	GetWorld() ? GetWorld()->LineTraceSingleByChannel(HitResult, StartPos, EndPos, ECollisionChannel::ECC_Visibility) : false;
+	GetWorld() ? GetWorld()->LineTraceSingleByChannel(
+		HitResult,
+		StartPos,
+		EndPos,
+		ECollisionChannel::ECC_Visibility) : false;
 #if ENABLE_DRAW_DEBUG
 	if (CVarDisplayTrace->GetBool())
 	{
-		DrawDebugLine(GetWorld(), StartPos, EndPos, HitResult.bBlockingHit ? FColor::Red : FColor::White, false);
+		DrawDebugLine(
+			GetWorld(),
+			StartPos,
+			EndPos,
+			HitResult.bBlockingHit ? FColor::Red : FColor::White,
+			false);
 	}
 #endif
 	ProcessTraceResult(HitResult);
@@ -298,13 +331,14 @@ void ATantrumnCharacterBase::LineCastActorTransform()
 
 void ATantrumnCharacterBase::ProcessTraceResult(const FHitResult& HitResult)
 {
-	// Check if there was an existing throwable actor
+	// Check if there was an existing throwable object
 	// Remove the highlight to avoid wrong feedback
-	AThrowableActor* HitThrowableActor = HitResult.bBlockingHit ? Cast<AThrowableActor>(HitResult.GetActor()) : nullptr;
+	AThrowableActor* HitThrowableActor = HitResult.bBlockingHit ?
+		Cast<AThrowableActor>(HitResult.GetActor()) : nullptr;
 	const bool IsSameActor = (ThrowableActor == HitThrowableActor);
 	const bool IsValidTarget = HitThrowableActor && HitThrowableActor->IsIdle();
 
-	// Clean up old actor
+	// Clean up previous target reference
 	if (ThrowableActor)
 	{
 		if (!IsValidTarget || !IsSameActor)
@@ -314,6 +348,7 @@ void ATantrumnCharacterBase::ProcessTraceResult(const FHitResult& HitResult)
 		}
 	}
 
+	// Check if hit object can be pulled
 	if (IsValidTarget)
 	{
 		if (!ThrowableActor)
@@ -323,6 +358,7 @@ void ATantrumnCharacterBase::ProcessTraceResult(const FHitResult& HitResult)
 		}
 	}
 
+	// Perform pull
 	if (CharacterThrowState == ECharacterThrowState::RequestingPull)
 	{
 		// Don't allow for pulling objects while running/jogging
@@ -337,6 +373,7 @@ void ATantrumnCharacterBase::ProcessTraceResult(const FHitResult& HitResult)
 	}
 }
 
+// Configure delegates for montage play states: start/end to correlate behavior to animations
 bool ATantrumnCharacterBase::PlayThrowMontage()
 {
 	// TODO implement if we decide not to allow movement during throw animation
@@ -401,7 +438,8 @@ void ATantrumnCharacterBase::OnMontageEnded(UAnimMontage* Montage, bool bInterru
 
 void ATantrumnCharacterBase::OnNotifyBeginReceived(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointNotifyPayload)
 {
-	// Ignore collisions otherwise the throwable object hits the player capsule and doesn't travel in the desired direction
+	// Ignore collisions
+	// otherwise the throwable object hits the player capsule and doesn't travel in the desired direction
 	if (ThrowableActor->GetRootComponent())
 	{
 		UPrimitiveComponent* RootPrimitiveComponent = Cast<UPrimitiveComponent>(ThrowableActor->GetRootComponent());
@@ -423,7 +461,8 @@ void ATantrumnCharacterBase::OnNotifyBeginReceived(FName NotifyName, const FBran
 	if (CVarDisplayThrowVelocity->GetBool())
 	{
 		const FVector& Start = GetMesh()->GetSocketLocation(TEXT("ObjectAttach"));
-		UE_LOG(LogTemp, Warning, TEXT("Velocity X: %f Velocity Y: %f Velocity Z: %f"), Direction.X, Direction.Y, Direction.Z);
+		UE_LOG(LogTemp, Warning,
+			TEXT("Velocity X: %f Velocity Y: %f Velocity Z: %f"), Direction.X, Direction.Y, Direction.Z);
 		DrawDebugLine(GetWorld(), Start, Start + Direction, FColor::Red, false, 5.0f);
 	}
 }

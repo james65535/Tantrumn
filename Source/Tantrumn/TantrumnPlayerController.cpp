@@ -2,14 +2,11 @@
 
 
 #include "TantrumnPlayerController.h"
-
 #include "TantrumnCharacterBase.h"
-#include "GameFramework/Character.h"
 #include "TantrumnInputConfigRegistry.h"
 #include "EnhancedInput/Public/EnhancedInputComponent.h"
 #include "EnhancedInput//Public/EnhancedInputSubsystems.h"
 #include "EnhancedInput/Public/InputActionValue.h"
-#include "GameFramework/CharacterMovementComponent.h"
 
 static TAutoConsoleVariable<bool> CVarDisplayLaunchInputDelta(
 	TEXT("Tantrumn.Character.Debug.DisplayLaunchInputdelta"),
@@ -114,20 +111,20 @@ void ATantrumnPlayerController::RequestMove(const FInputActionValue& ActionValue
 	// Movement for forwards and backwards
 	if (MoveAction.Y != 0.f)
 	{
-		if (ACharacter* ControlledChar = GetCharacter())
+		if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 		{
 			const FVector Direction = MoveRotation.RotateVector(FVector::ForwardVector);
-			ControlledChar->AddMovementInput(Direction, MoveAction.Y);
+			TantrumnCharacter->AddMovementInput(Direction, MoveAction.Y);
 		}
 	}
 
 	// Movement for left and right
 	if (MoveAction.X != 0.f)
 	{
-		if (ACharacter* ControlledChar = GetCharacter())
+		if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 		{
 			const FVector Direction = MoveRotation.RotateVector(FVector::RightVector);
-			ControlledChar->AddMovementInput(Direction, MoveAction.X);
+			TantrumnCharacter->AddMovementInput(Direction, MoveAction.X);
 		}
 	}
 }
@@ -139,68 +136,76 @@ void ATantrumnPlayerController::RequestLook(const FInputActionValue& ActionValue
 	// Look up and down
 	if (LookAction.Y != 0.f)
 	{
-		if (ACharacter* ControlledChar = GetCharacter())
+		if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 		{
-			ControlledChar->AddControllerPitchInput(LookAction.Y);
+			TantrumnCharacter->AddControllerPitchInput(LookAction.Y);
 		}
 	}
 
 	// Look left and right
 	if (LookAction.X != 0.f)
 	{
-		if (ACharacter* ControlledChar = GetCharacter())
+		if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 		{
-			ControlledChar->AddControllerYawInput(LookAction.X);
+			TantrumnCharacter->AddControllerYawInput(LookAction.X);
 		}
 	}
 }
 
 void ATantrumnPlayerController::RequestJump()
 {
-	if (ACharacter* ControlledChar = GetCharacter())
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		ControlledChar->Jump();
+		TantrumnCharacter->Jump();
 	}
 }
 
 void ATantrumnPlayerController::RequestStopJump()
 {
-	if (ACharacter* ControlledChar = GetCharacter())
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		ControlledChar->StopJumping();
+		TantrumnCharacter->StopJumping();
 	}
 }
 
 void ATantrumnPlayerController::RequestCrouch()
 {
-	if (ACharacter* ControlledChar = GetCharacter())
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		ControlledChar->Crouch();
+		TantrumnCharacter->Crouch();
 	}
 }
 
 void ATantrumnPlayerController::RequestStopCrouch()
 {
-	if (ACharacter* ControlledChar = GetCharacter())
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		ControlledChar->UnCrouch();
+		TantrumnCharacter->UnCrouch();
 	}
 }
 
 void ATantrumnPlayerController::RequestSprint()
 {
-	if (ACharacter* ControlledChar = GetCharacter())
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		ControlledChar->GetCharacterMovement()->MaxWalkSpeed = WalkSpeed * SprintModifier;
+		TantrumnCharacter->RequestSprintStart();
+	}
+}
+
+void ATantrumnPlayerController::RequestStopSprint()
+{
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
+	{
+		TantrumnCharacter->RequestSprintEnd();
 	}
 }
 
 void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& ActionValue)
 {
 	const float AxisValue = ActionValue.Get<float>();  // TODO check this works as intended
-	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		if (TantrumnCharacterBase->CanThrowObject())
+		if (TantrumnCharacter->CanThrowObject())
 		{
 			float CurrentDelta = AxisValue - LastAxis; // TODO this might now be right
 
@@ -216,7 +221,7 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 			const bool IsFlick = fabs(CurrentDelta) > FlickThreshold;
 			if (IsFlick)
 			{
-				TantrumnCharacterBase->RequestThrowObject();
+				TantrumnCharacter->RequestThrowObject();
 			}
 		}
 		else
@@ -226,29 +231,19 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 	}
 }
 
-
 void ATantrumnPlayerController::RequestPullObject()
 {
-	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		TantrumnCharacterBase->RequestPullObjectStart();
+		TantrumnCharacter->RequestPullObjectStart();
 	}
 }
 
 void ATantrumnPlayerController::RequestStopPullObject()
 {
-	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		TantrumnCharacterBase->RequestPullObjectStop();
-	}
-}
-
-
-void ATantrumnPlayerController::RequestStopSprint()
-{
-	if (ACharacter* ControlledChar = GetCharacter())
-	{
-		ControlledChar->GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
+		TantrumnCharacter->RequestPullObjectStop();
 	}
 }
 
@@ -256,7 +251,7 @@ void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason
 {
 	if (InputComponent)
 	{
-		// Prep Enhanced Input subsystem for mappings
+		// Tear down Enhanced Input subsystem for mappings
 		if (ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
 		{
 			if (UEnhancedInputLocalPlayerSubsystem* InputSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
@@ -269,46 +264,3 @@ void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason
 		}
 	}
 }
-
-
-/*
-
-
-void ATantrumnPlayerController::RequestMoveX(float AxisValue)
-{
-	if  (AxisValue != 0.f)
-	{
-		if (GetCharacter())
-		{
-			GetCharacter()->AddMovementInput(GetCharacter()->GetActorForwardVector(),AxisValue);
-		}
-	}
-}
-
-void ATantrumnPlayerController::RequestMoveY(float AxisValue)
-{
-	if  (AxisValue != 0.f)
-	{
-		if (GetCharacter() && AxisValue != 0.f)
-		{
-			GetCharacter()->AddMovementInput(GetCharacter()->GetActorRightVector(),AxisValue);
-		}
-	}
-}
-
-void ATantrumnPlayerController::RequestLookPitch(float AxisValue)
-{
-	if  (AxisValue != 0.f)
-	{
-		AddPitchInput(AxisValue * BaseLookPitchRate * GetWorld()->DeltaTimeSeconds);
-	}
-}
-
-void ATantrumnPlayerController::RequestLookYaw(float AxisValue)
-{
-	if  (AxisValue != 0.f)
-	{
-		AddYawInput(AxisValue * BaseLookYawRate * GetWorld()->DeltaTimeSeconds);
-	}
-}
-*/

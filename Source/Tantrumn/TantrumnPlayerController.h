@@ -22,8 +22,6 @@ class TANTRUMN_API ATantrumnPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
-public:
-
 protected:
 
 	virtual void BeginPlay() override;
@@ -62,11 +60,7 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestStopPullObject();  // TODO update these
 
-	UPROPERTY(BlueprintReadWrite, Category = "CharacterMovement")
-	float SprintModifier = 2.0f;
 
-	UPROPERTY(BlueprintReadWrite, Category = "CharacterMovement")
-	float WalkSpeed = 600.0f;
 /*
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestMoveX(float AxisValue);
