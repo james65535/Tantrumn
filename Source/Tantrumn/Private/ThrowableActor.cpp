@@ -39,6 +39,7 @@ void AThrowableActor::EndPlay(EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
+// If object hits the pulling actor then attach it to the actor
 void AThrowableActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit)
 {
 	Super::NotifyHit(MyComp, Other, OtherComp, bSelfMoved, HitLocation, HitNormal, NormalImpulse, Hit);
@@ -68,7 +69,10 @@ void AThrowableActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPri
 		{
 			if (Other == PullActor)
 			{
-				AttachToComponent(TantrumnCharacter->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, TEXT("ObjectAttach"));
+				AttachToComponent(
+					TantrumnCharacter->GetMesh(),
+					FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+					TEXT("ObjectAttach"));
 				SetOwner(TantrumnCharacter);
 				ProjectileMovementComponent->Deactivate();
 				State = EState::Attached;
@@ -86,6 +90,7 @@ void AThrowableActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPri
 	PullActor = nullptr;
 }
 
+// Return object state to idle when not doing anything
 void AThrowableActor::ProjectileStop(const FHitResult& ImpactResult)
 {
 	if (State == EState::Launch || State == EState::Dropped)
@@ -94,6 +99,7 @@ void AThrowableActor::ProjectileStop(const FHitResult& ImpactResult)
 	}
 }
 
+// Configure object to home as a projectile to the pulling actor as a target
 bool AThrowableActor::SetHomingTarget(AActor* Target)
 {
 	if (Target)
@@ -109,9 +115,13 @@ bool AThrowableActor::SetHomingTarget(AActor* Target)
 			ProjectileMovementComponent->Activate(true);
 			ProjectileMovementComponent->HomingTargetComponent = TWeakObjectPtr<USceneComponent>(SceneComponent);
 			ProjectileMovementComponent->bIsHomingProjectile = true;
-			ProjectileMovementComponent->HomingAccelerationMagnitude = 2500.f;
+			ProjectileMovementComponent->HomingAccelerationMagnitude = 2500.f; // Needed otherwise homing doesn't work
+
+			// Set object into motion so homing can do it's thing
+			// TODO replace velocity with static value with calculation based on distance to target
+			// As currently the visual aspect is not smooth at distance extremities
 			ProjectileMovementComponent->Velocity = FVector(0.0f, 0.0f, 500.0f);
-			//ProjectileMovementComponent->UpdateComponentVelocity(); // TODO added while troubleshooting lack of movement
+			
 			return true;
 		}
 	}
@@ -121,11 +131,13 @@ bool AThrowableActor::SetHomingTarget(AActor* Target)
 
 bool AThrowableActor::Pull(AActor* InActor)
 {
+	// Do not allow pull if object is already doing something else
 	if (State != EState::Idle)
 	{
 		return false;
 	}
 
+	// If we can home to the puller then proceed with pull
 	if (SetHomingTarget(InActor))
 	{
 		ToggleHighlight(false);
@@ -134,22 +146,28 @@ bool AThrowableActor::Pull(AActor* InActor)
 		return true;
 	}
 
+	// We have not met any conditions required to pull object
 	return false;
 }
 
+// Throw the object
 void AThrowableActor::Launch(const FVector& InitialVelocity, AActor* Target)
 {
+	// Launch object if not detached or idle
 	if (State == EState::Pull || State == EState::Attached)
 	{
+		// Configure object to function as a projectile and detach from holding actor
 		DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 		ProjectileMovementComponent->Activate(true);
 		ProjectileMovementComponent->HomingTargetComponent = nullptr;
 
 		State = EState::Launch;
 
+		// If object has been called to be thrown at something in particular
 		if (Target)
 		{
-			if (USceneComponent* SceneComponent = Cast<USceneComponent>(Target->GetComponentByClass(USceneComponent::StaticClass())))
+			if (USceneComponent* SceneComponent = Cast<USceneComponent>(
+				Target->GetComponentByClass(USceneComponent::StaticClass())))
 			{
 				ProjectileMovementComponent->HomingTargetComponent = TWeakObjectPtr<USceneComponent>(SceneComponent);
 				return;

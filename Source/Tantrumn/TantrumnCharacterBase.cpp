@@ -436,6 +436,7 @@ void ATantrumnCharacterBase::OnMontageEnded(UAnimMontage* Montage, bool bInterru
 	ThrowableActor = nullptr;
 }
 
+// Prep and call launch on throwable object when character attempts to throw
 void ATantrumnCharacterBase::OnNotifyBeginReceived(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointNotifyPayload)
 {
 	// Ignore collisions
