@@ -52,6 +52,8 @@ ATantrumnCharacterBase::ATantrumnCharacterBase(
 void ATantrumnCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
+
+	EffectCooldown = DefaultEffectCooldown;
 }
 
 // Called every frame
@@ -95,6 +97,20 @@ void ATantrumnCharacterBase::Tick(float DeltaTime)
 		default:
 			SphereCastPlayerView();
 			break;
+		}
+	}
+
+	if(bIsUnderEffect)
+	{
+		if (EffectCooldown > 0)
+		{
+			EffectCooldown -= DeltaTime;
+		}
+		else
+		{
+			bIsUnderEffect = false;
+			EffectCooldown = DefaultEffectCooldown;
+			EndEffect();
 		}
 	}
 }
@@ -471,4 +487,45 @@ void ATantrumnCharacterBase::OnNotifyBeginReceived(FName NotifyName, const FBran
 void ATantrumnCharacterBase::OnNotifyEndReceived(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointNotifyPayload)
 {
 
+}
+
+void ATantrumnCharacterBase::ApplyEffect_Implementation(EEffectType EffectType, bool bIsBuff)
+{
+	// Prevents multiple buffs stacking
+	if (bIsUnderEffect) return;
+
+	CurrentEffect = EffectType;
+	bIsUnderEffect = true;
+	bIsEffectBuff = bIsBuff;
+
+	switch (CurrentEffect)
+	{
+	case EEffectType::SPEED :
+		bIsEffectBuff ? GetCharacterMovement()->MaxWalkSpeed *= 2 : GetCharacterMovement()->DisableMovement(); // TODO reimplement
+
+	default:
+		break;
+	}
+}
+
+
+void ATantrumnCharacterBase::EndEffect()
+{
+	bIsUnderEffect = false;
+
+	switch(CurrentEffect)
+	{
+	case EEffectType::SPEED :
+		bIsEffectBuff ? GetCharacterMovement()->MaxWalkSpeed /= 2, RequestSprintEnd() : GetCharacterMovement()->SetMovementMode(MOVE_Walking); // TODO reimplement
+		break;
+	default:
+		break;
+	}
+}
+
+void ATantrumnCharacterBase::RequestUseObject()
+{
+	ApplyEffect_Implementation(ThrowableActor->GetEffectType(), true);
+	ThrowableActor->Destroy();
+	ResetThrowableObject();
 }

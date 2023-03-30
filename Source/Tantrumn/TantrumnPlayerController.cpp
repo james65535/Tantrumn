@@ -231,12 +231,14 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 {
 	// Ignore movement if gamemode is not in Playing state
 	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-	
+
+	// Before we throw we need to check if character is allowed to throw
 	const float AxisValue = ActionValue.Get<float>();  // TODO check this works as intended
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		if (TantrumnCharacter->CanThrowObject())
 		{
+			// the delta and axis values influence throw behaviour
 			float CurrentDelta = AxisValue - LastAxis; // TODO this might now be right
 
 			// Debug toggle to character display throwing velocity
@@ -248,10 +250,20 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 				}
 			}
 			LastAxis = AxisValue;
+
+			// Flick action triggers the player to throw
 			const bool IsFlick = fabs(CurrentDelta) > FlickThreshold;
 			if (IsFlick)
 			{
-				TantrumnCharacter->RequestThrowObject();
+				// Depending on mousewheel forward or back; throw or apply effect on ourselves
+				if (AxisValue > 0)
+				{
+					TantrumnCharacter->RequestThrowObject();
+				}
+				else
+				{
+					TantrumnCharacter->RequestUseObject();
+				}
 			}
 		}
 		else

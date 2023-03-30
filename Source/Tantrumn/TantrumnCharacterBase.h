@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "TantrumnCharMovementComponent.h"
 #include "GameFramework/Character.h"
+#include "InteractInterface.h"
 #include "TantrumnCharacterBase.generated.h"
 
 class AThrowableActor;
@@ -21,7 +22,7 @@ enum class ECharacterThrowState : uint8
 };
 
 UCLASS()
-class TANTRUMN_API ATantrumnCharacterBase : public ACharacter
+class TANTRUMN_API ATantrumnCharacterBase : public ACharacter, public IInteractInterface
 {
 	GENERATED_BODY()
 
@@ -54,6 +55,9 @@ public:
 				CharacterThrowState == ECharacterThrowState::Attached; }
 	UFUNCTION(BlueprintPure)
 	ECharacterThrowState GetCharacterThrowState() const { return CharacterThrowState; }
+
+	// TODO update with description
+	void RequestUseObject();
 
 	// Internal throw functions
 	void OnThrowableAttached(AThrowableActor* InThrowableActor);
@@ -129,4 +133,15 @@ private:
 	// Reference to object which can be thrown
 	UPROPERTY()
 	AThrowableActor* ThrowableActor;
+
+	// *** Interace Work *** //
+	void ApplyEffect_Implementation(EEffectType EffectType, bool bIsBuff) override;
+	void EndEffect();
+	bool bIsUnderEffect = false;
+	bool bIsEffectBuff = false;
+	float DefaultEffectCooldown = 5.0f;
+	float EffectCooldown = 0.0f;
+	float SprintSpeed = 2.0f; // TODO reimplement
+
+	EEffectType CurrentEffect = EEffectType::NONE;
 };
