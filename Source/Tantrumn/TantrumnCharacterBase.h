@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TantrumnCharMovementComponent.h"
 #include "GameFramework/Character.h"
 #include "InteractInterface.h"
 #include "TantrumnCharacterBase.generated.h"
@@ -56,7 +55,7 @@ public:
 	UFUNCTION(BlueprintPure)
 	ECharacterThrowState GetCharacterThrowState() const { return CharacterThrowState; }
 
-	// TODO update with description
+	// Apply an effect from a held throwable object
 	void RequestUseObject();
 
 	// Internal throw functions
@@ -66,8 +65,19 @@ public:
 	// Called when player needs to be stunned from fall landing or otherwise
 	UFUNCTION(BlueprintCallable, Category = "Stun")
 	void RequestStunStart(const float DurationMultiplier);
-	UFUNCTION(BlueprintPure, Category = "Stun")
-	bool IsStunned() const { return TantrumnCharMoveComp->IsStunned();}
+	// Stun
+
+	/*
+	 * Note:
+	 * Changing a replicated variable's value on the client is not recommended. The value will continue to differ from
+	 * the server's value until the next time the server detects a change and sends an update.
+	 * If the server's copy of the property does not change very often, it could be a long time before the client receives a correction.
+	 * 
+	 */
+	UPROPERTY(BlueprintReadOnly, replicatedUsing=OnRep_IsStunned)
+	bool bIsStunned;
+	UFUNCTION()
+	virtual void OnRep_IsStunned();
 
 protected:
 	// Called when the game starts or when spawned
@@ -78,13 +88,33 @@ protected:
 
 	// Custom character movement Component
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
-	UTantrumnCharMovementComponent* TantrumnCharMoveComp;
+	class UTantrumnCharMovementComponent* TantrumnCharMoveComp;
 
 	// Hit checks for throwable object targets when performing pull action
 	void SphereCastPlayerView();
 	void SphereCastActorTransform();
 	void LineCastActorTransform();
 	void ProcessTraceResult(const FHitResult& HitResult);
+
+	// Network capable RPCs
+	UFUNCTION(Server, Reliable)
+	void ServerPullObject(AThrowableActor* InThrowableActor);
+	UFUNCTION(Server, Reliable)
+	void ServerRequestPullObject(bool bIsPulling);
+	UFUNCTION(Server, Reliable)
+	void ServerRequestThrowObject();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastRequestThrowObject();
+	UFUNCTION(Client, Reliable)
+	void ClientThrowableAttached(AThrowableActor* InThrowableActor);
+	UFUNCTION(Server, Reliable)
+	void ServerBeginThrow();
+	UFUNCTION(Server, Reliable)
+	void ServerFinishThrow();
+	UFUNCTION() // Note: this function definition varies from class video
+	void OnRep_CharacterThrowState(const ECharacterThrowState& OldCharacterThrowState);
+	// This was not in the class download file
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	// Used for throw animation
 	bool PlayThrowMontage();
@@ -103,7 +133,7 @@ protected:
 	FOnMontageEnded MontageEndedDelegate;
 
 	// Throwing defaults
-	UPROPERTY(VisibleAnywhere, Category = "Throw")
+	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_CharacterThrowState, Category = "Throw")
 	ECharacterThrowState CharacterThrowState = ECharacterThrowState::None;
 	UPROPERTY(EditAnywhere, Category = "Throw", meta = (ClampMin = "0.0", Unit = "ms"))
 	float ThrowSpeed = 5000.0f;
@@ -111,20 +141,15 @@ protected:
 	// Called when Landed from jump or fall
 	virtual void Landed(const FHitResult& Hit) override;
 
-	// Stun delegate multicast listener
-	UFUNCTION()
-	void OnStunEnd() const;
-	FDelegateHandle OnStunEndHandle;
-	
 	// Impact settings for when landing after fall or jump
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")
 	float MinImpactSpeed = 500.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")
 	float MaxImpactSpeed = 1000.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")
-	float MinImpactStunMultiplier = 0.5;
+	float MinImpactStunMultiplier = 1.0;
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")
-	float MaxImpactStunMultiplier = 1.0f;
+	float MaxImpactStunMultiplier = 3.0f;
 	UPROPERTY(EditAnywhere, Category = "Fall Impact")
 	USoundCue* HeavyLandSound = nullptr;
 
@@ -134,14 +159,13 @@ private:
 	UPROPERTY()
 	AThrowableActor* ThrowableActor;
 
-	// *** Interace Work *** //
-	void ApplyEffect_Implementation(EEffectType EffectType, bool bIsBuff) override;
+	// *** Interface Work *** //
+	virtual void ApplyEffect_Implementation(EEffectType EffectType, bool bIsBuff) override;
 	void EndEffect();
 	bool bIsUnderEffect = false;
 	bool bIsEffectBuff = false;
 	float DefaultEffectCooldown = 5.0f;
 	float EffectCooldown = 0.0f;
-	float SprintSpeed = 2.0f; // TODO reimplement
-
+	float SprintSpeed = 2.0f;
 	EEffectType CurrentEffect = EEffectType::NONE;
 };

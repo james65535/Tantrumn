@@ -21,11 +21,16 @@ class TANTRUMN_API ATantrumnPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
+public:
+	virtual void ReceivedPlayer() override; 
+
 protected:
 
 	// Game play start and cleanup
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	UPROPERTY()
 	ATantrumnGameModeBase* GameModeRef;
 
 	// Enhanced Input Setup
@@ -52,11 +57,11 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestLook(const FInputActionValue& ActionValue);
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
-	void RequestThrowObject(const FInputActionValue& ActionValue);  // TODO update these
+	void RequestThrowObject(const FInputActionValue& ActionValue);
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
-	void RequestPullObject();  // TODO update these
+	void RequestPullObject();
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
-	void RequestStopPullObject();  // TODO update these
+	void RequestStopPullObject();
 
 	// Character Look Inputs
 	UPROPERTY(EditAnywhere,Category = "CharacterMovement")
@@ -81,10 +86,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Sound")
 	USoundCue* JumpSound = nullptr;
 
-	// HUD Setup
-	// UPROPERTY(EditAnywhere, Category = "HUD")
-	// TSubclassOf<class UUserWidget> HUDClass;
-	//UPROPERTY()
-	//UUserWidget* HUDWidget;
+	// Player HUD
+	UPROPERTY(EditAnywhere, Category = "HUD")
+	TSubclassOf<class UUserWidget> HUDClass;
+	UPROPERTY()
+	UUserWidget* HUDWidget;
 	
 };

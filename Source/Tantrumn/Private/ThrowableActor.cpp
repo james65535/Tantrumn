@@ -12,6 +12,11 @@ AThrowableActor::AThrowableActor()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
+
+	// Allow network replication of movement data
+	bReplicates = true;
+	SetReplicateMovement(true);
+	
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("StaticMeshComponent");
 	RootComponent = StaticMeshComponent;
 	StaticMeshComponent->BodyInstance.SetCollisionProfileName(TEXT("Projectile"));  // Ignores camera
@@ -200,7 +205,10 @@ void AThrowableActor::Drop()
 
 void AThrowableActor::ToggleHighlight(bool bIsOn)
 {
-	StaticMeshComponent->SetRenderCustomDepth(bIsOn);
+	if (StaticMeshComponent)
+	{
+		StaticMeshComponent->SetRenderCustomDepth(bIsOn);
+	}
 }
 
 EEffectType AThrowableActor::GetEffectType() const

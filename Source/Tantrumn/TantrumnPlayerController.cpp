@@ -20,9 +20,6 @@ void ATantrumnPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Load reference to game mode
-	GameModeRef = Cast<ATantrumnGameModeBase>(GetWorld()->GetAuthGameMode());
-
 	// Setup Enhanced Input
 	if (InputComponent)
 	{
@@ -99,12 +96,29 @@ void ATantrumnPlayerController::BeginPlay()
 			EIPlayerComponent->BindAction(InputActions->InputPullObject,
 				ETriggerEvent::Triggered,
 				this,
-				&ATantrumnPlayerController::RequestPullObject);  // TODO Update
+				&ATantrumnPlayerController::RequestPullObject);
 
 			EIPlayerComponent->BindAction(InputActions->InputPullObject,
 				ETriggerEvent::Completed,
 				this,
-				&ATantrumnPlayerController::RequestStopPullObject);  // TODO Update
+				&ATantrumnPlayerController::RequestStopPullObject);
+		}
+	}
+}
+
+void ATantrumnPlayerController::ReceivedPlayer()
+{
+	Super::ReceivedPlayer();
+	GameModeRef = GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>();
+	if (GetNetMode() == ENetMode::NM_Standalone && GetLocalRole() == ROLE_SimulatedProxy)
+	{
+		if (HUDClass)
+		{
+			HUDWidget = CreateWidget(this, HUDClass);
+			if (HUDWidget)
+			{
+				HUDWidget->AddToPlayerScreen();
+			}
 		}
 	}
 }
@@ -113,9 +127,6 @@ void ATantrumnPlayerController::RequestMove(const FInputActionValue& ActionValue
 {
 	const FVector2d MoveAction = ActionValue.Get<FVector2d>();
 	const FRotator MoveRotation(0, GetControlRotation().Yaw, 0);
-
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
 	
 	// Movement for forwards and backwards
 	if (MoveAction.Y != 0.f)
@@ -163,9 +174,6 @@ void ATantrumnPlayerController::RequestLook(const FInputActionValue& ActionValue
 
 void ATantrumnPlayerController::RequestJump()
 {
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->Jump();
@@ -174,9 +182,6 @@ void ATantrumnPlayerController::RequestJump()
 
 void ATantrumnPlayerController::RequestStopJump()
 {
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->StopJumping();
@@ -185,9 +190,6 @@ void ATantrumnPlayerController::RequestStopJump()
 
 void ATantrumnPlayerController::RequestCrouch()
 {
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->Crouch();
@@ -196,9 +198,6 @@ void ATantrumnPlayerController::RequestCrouch()
 
 void ATantrumnPlayerController::RequestStopCrouch()
 {
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->UnCrouch();
@@ -207,9 +206,6 @@ void ATantrumnPlayerController::RequestStopCrouch()
 
 void ATantrumnPlayerController::RequestSprint()
 {
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->RequestSprintStart();
@@ -218,9 +214,6 @@ void ATantrumnPlayerController::RequestSprint()
 
 void ATantrumnPlayerController::RequestStopSprint()
 {
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->RequestSprintEnd();
@@ -229,9 +222,6 @@ void ATantrumnPlayerController::RequestStopSprint()
 
 void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& ActionValue)
 {
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-
 	// Before we throw we need to check if character is allowed to throw
 	const float AxisValue = ActionValue.Get<float>();  // TODO check this works as intended
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
@@ -239,7 +229,7 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 		if (TantrumnCharacter->CanThrowObject())
 		{
 			// the delta and axis values influence throw behaviour
-			float CurrentDelta = AxisValue - LastAxis; // TODO this might now be right
+			float CurrentDelta = AxisValue - LastAxis;
 
 			// Debug toggle to character display throwing velocity
 			if (CVarDisplayLaunchInputDelta->GetBool())
@@ -275,9 +265,6 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 
 void ATantrumnPlayerController::RequestPullObject()
 {
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->RequestPullObjectStart();
@@ -286,9 +273,6 @@ void ATantrumnPlayerController::RequestPullObject()
 
 void ATantrumnPlayerController::RequestStopPullObject()
 {
-	// Ignore movement if gamemode is not in Playing state
-	if (!GameModeRef || GameModeRef->GetCurrentGameState() != ETantrumnGameState::PLAYING) { return;}
-	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->RequestPullObjectStop();

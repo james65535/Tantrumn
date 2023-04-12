@@ -14,11 +14,11 @@ class UTantrumnGameWidget;
 UENUM(BlueprintType)
 enum class ETantrumnGameState : uint8
 {
-	NONE		UMETA(DisplayName = "NONE"),
-	WAITING		UMETA(DisplayName = "Waiting"),
-	PLAYING		UMETA(DisplayName = "Playing"),
-	PAUSED		UMETA(DisplayName = "Paused"),
-	GAMEOVER	UMETA(DisplayName = "GameOver"),
+	None		UMETA(DisplayName = "None"),
+	Waiting		UMETA(DisplayName = "Waiting"),
+	Playing		UMETA(DisplayName = "Playing"),
+	Paused		UMETA(DisplayName = "Paused"),
+	Gameover	UMETA(DisplayName = "GameOver"),
 };
 
 UCLASS()
@@ -29,14 +29,17 @@ class TANTRUMN_API ATantrumnGameModeBase : public AGameModeBase
 public:
 
 	// --- FUNCTIONS --- //
-	
 	ATantrumnGameModeBase();
-
 	virtual void BeginPlay() override;
+	virtual void RestartPlayer(AController* NewPlayer) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	ETantrumnGameState GetCurrentGameState() const;
-	void PLayerReachedEnd();
+	UFUNCTION(BlueprintCallable)
+	void AttemptStartGame();
+	void PLayerReachedEnd(APlayerController* PlayerController);
+	
+	void ReceivePlayer(APlayerController* PlayerController);
 
 private:
 
@@ -44,23 +47,28 @@ private:
 
 	// Create and sset CurrentGameState to NONE. This will be tracked in the code file
 	UPROPERTY(VisibleAnywhere, Category = "States")
-	ETantrumnGameState CurrentGameState = ETantrumnGameState::NONE;
+	ETantrumnGameState CurrentGameState = ETantrumnGameState::None;
 	// Countdown before the gameplay state begins.  Exposed for BPs to change in editor
 	UPROPERTY(EditAnywhere, Category = "Game Details")
 	float GameCountDownDuration = 4.0f;
 
 	FTimerHandle CountdownTimerHandle;
 
+	// Local player split screen
+	UFUNCTION(BlueprintCallable, Category = "Game Details")
+	void SetNumExpectedPlayers(uint8 InNumExpectedPlayers) { NumExpectedPlayers = InNumExpectedPlayers; }
+	UPROPERTY(EditAnywhere, Category = "Game Details")
+	uint8 NumExpectedPlayers = 1u;
+
 	// Game UI Widget
-	UPROPERTY()
-	UTantrumnGameWidget* GameWidget;
 	UPROPERTY(EditAnywhere, Category = "Widget")
 	TSubclassOf<UTantrumnGameWidget> GameWidgetClass;
+	UPROPERTY()
+	TMap<APlayerController*, UTantrumnGameWidget*> GameWidgets; // Use map instead of array due to >1 players
 
 	ATantrumnPlayerController* PC = nullptr;
 
 	// --- FUNCTIONS --- //
-
 	void DisplayCountdown();
 	void StartGame();
 	

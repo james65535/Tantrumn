@@ -2,15 +2,13 @@
 
 
 #include "TantrumnGameModeBase.h"
-
-#include "LocalizationDescriptor.h"
-#include "TantrumnGameWidget.h"
-#include "TantrumnPlayerController.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 ATantrumnGameModeBase::ATantrumnGameModeBase()
 {
-	
+	PrimaryActorTick.bCanEverTick = false;
 }
 
 void ATantrumnGameModeBase::BeginPlay()
@@ -18,45 +16,68 @@ void ATantrumnGameModeBase::BeginPlay()
 	Super::BeginPlay();
 
 	// Start game play with a timer before player can move
-	CurrentGameState = ETantrumnGameState::WAITING;
-	DisplayCountdown();
-	GetWorld()->GetTimerManager().SetTimer(
-		CountdownTimerHandle,
-		this,
-		&ATantrumnGameModeBase::StartGame,
-		GameCountDownDuration,
-		false);
+	CurrentGameState = ETantrumnGameState::Waiting;
 }
+
+void ATantrumnGameModeBase::ReceivePlayer(APlayerController* PlayerController)
+{
+	AttemptStartGame();
+}
+
+void ATantrumnGameModeBase::AttemptStartGame()
+{
+	if (GetNumPlayers() == NumExpectedPlayers)
+	{
+		DisplayCountdown();
+		if (GameCountDownDuration > SMALL_NUMBER)
+		{
+			GetWorld()->GetTimerManager().SetTimer(CountdownTimerHandle,
+				this, &ATantrumnGameModeBase::StartGame,
+				GameCountDownDuration,
+				false);
+		}
+		else
+		{
+			StartGame();
+		}
+	}
+}	
 
 void ATantrumnGameModeBase::StartGame()
 {
-	CurrentGameState = ETantrumnGameState::PLAYING;
-	// Input may be disabled if replaying the game
-	FInputModeGameOnly const InputMode;
-	PC->SetInputMode(InputMode);
-	PC->SetShowMouseCursor(false);
+	CurrentGameState = ETantrumnGameState::Playing;
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* PlayerController = Iterator->Get();
+		if (PlayerController && PlayerController->PlayerState && !MustSpectate(PlayerController))
+		{
+			FInputModeGameOnly InputMode;
+			PlayerController->SetInputMode(InputMode);
+			PlayerController->SetShowMouseCursor(false);
+		}
+	}
 }
 
 // Countdown timer for game start
 void ATantrumnGameModeBase::DisplayCountdown()
 {
+	// Multiplayer consideration for adding widgets to player screens
 	if (!GameWidgetClass)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Gamemode did not have a valid widget class for UI"));
 		return;
 	}
-
-	// Add game timer UI to player
-	PC = Cast<ATantrumnPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0));
-	if(PC)
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		GameWidget = CreateWidget<UTantrumnGameWidget>(PC, GameWidgetClass);
-		GameWidget->AddToViewport();
-		GameWidget->StartCountDown(GameCountDownDuration, this);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Gamemode could not cast a player controller to add game UI"));
+		APlayerController* PlayerController = Iterator->Get();
+		if (PlayerController && PlayerController->PlayerState && !MustSpectate(PlayerController))
+		{
+			if (UTantrumnGameWidget* GameWidget = CreateWidget<UTantrumnGameWidget>(PlayerController, GameWidgetClass))
+			{
+				GameWidget->AddToPlayerScreen();
+				GameWidget->StartCountDown(GameCountDownDuration, this);
+				GameWidgets.Add(PlayerController, GameWidget);
+			}
+		}
 	}
 }
 
@@ -65,13 +86,35 @@ ETantrumnGameState ATantrumnGameModeBase::GetCurrentGameState() const
 	return CurrentGameState;
 }
 
-void ATantrumnGameModeBase::PLayerReachedEnd()
+void ATantrumnGameModeBase::PLayerReachedEnd(APlayerController* PlayerController)
 {
-	CurrentGameState = ETantrumnGameState::GAMEOVER;
-	GameWidget->LevelComplete();
-	FInputModeUIOnly const InputMode;
-	PC->SetInputMode(InputMode);
-	PC->SetShowMouseCursor(true);
+	//one gamemode base is shared between players in local mp
+	CurrentGameState = ETantrumnGameState::Gameover;
+	UTantrumnGameWidget** GameWidget = GameWidgets.Find(PlayerController);
+	if (GameWidget)
+	{
+		(*GameWidget)->LevelComplete();
+		FInputModeUIOnly InputMode;
+		PlayerController->SetInputMode(InputMode);
+		PlayerController->SetShowMouseCursor(true);
+		if (PlayerController->GetCharacter() && PlayerController->GetCharacter()->GetCharacterMovement())
+		{
+			PlayerController->GetCharacter()->GetCharacterMovement()->DisableMovement();
+		}
+	}
+}
+
+void ATantrumnGameModeBase::RestartPlayer(AController* NewPlayer)
+{
+	Super::RestartPlayer(NewPlayer);
+
+	if (APlayerController* PlayerController = Cast<APlayerController>(NewPlayer))
+	{
+		if (PlayerController->GetCharacter() && PlayerController->GetCharacter()->GetCharacterMovement())
+		{
+			PlayerController->GetCharacter()->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+		}
+	}
 }
 
 

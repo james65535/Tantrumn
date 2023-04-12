@@ -18,9 +18,13 @@ ATantrumnLevelEndTrigger::ATantrumnLevelEndTrigger()
 
 void ATantrumnLevelEndTrigger::OnOverlapBegin(AActor* OverlappedActor, AActor* OtherActor)
 {
-	if (OtherActor == Cast<ATantrumnCharacterBase>(OtherActor))
+	
+	if (ATantrumnCharacterBase* PlayerCharacter = Cast<ATantrumnCharacterBase>(OtherActor))
 	{
-		GameModeRef->PLayerReachedEnd();
+		if (PlayerCharacter->IsPlayerControlled())
+		{
+			GameModeRef->PLayerReachedEnd(PlayerCharacter->GetNetOwningPlayer()->GetPlayerController(GetWorld()));
+		}
 	}
 }
 
