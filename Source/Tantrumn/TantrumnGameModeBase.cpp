@@ -2,6 +2,9 @@
 
 
 #include "TantrumnGameModeBase.h"
+#include "TantrumnGameStateBase.h"
+#include "TantrumnPlayerController.h"
+#include "TantrumnPlayerState.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -15,20 +18,23 @@ void ATantrumnGameModeBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Start game play with a timer before player can move
-	CurrentGameState = ETantrumnGameState::Waiting;
-}
-
-void ATantrumnGameModeBase::ReceivePlayer(APlayerController* PlayerController)
-{
-	AttemptStartGame();
+	if (ATantrumnGameStateBase* TantrumnGameState= GetGameState<ATantrumnGameStateBase>())
+	{
+		TantrumnGameState->SetGameState(EGameState::Waiting);
+	}
 }
 
 void ATantrumnGameModeBase::AttemptStartGame()
 {
+	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
+	{
+		TantrumnGameState->SetGameState(EGameState::Waiting);
+	}
+	
 	if (GetNumPlayers() == NumExpectedPlayers)
 	{
-		DisplayCountdown();
+		// This needs to be replicated, call a function on game instance and replicate
+		DisplayCountDown();
 		if (GameCountDownDuration > SMALL_NUMBER)
 		{
 			GetWorld()->GetTimerManager().SetTimer(CountdownTimerHandle,
@@ -41,11 +47,31 @@ void ATantrumnGameModeBase::AttemptStartGame()
 			StartGame();
 		}
 	}
-}	
+}
+
+void ATantrumnGameModeBase::DisplayCountDown()
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* PlayerController = Iterator->Get();
+		if (PlayerController && PlayerController->PlayerState && !MustSpectate(PlayerController))
+		{
+			if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(PlayerController))
+			{
+				TantrumnPlayerController->ClientDisplayCountDown(GameCountDownDuration);
+			}
+		}
+	}
+}
 
 void ATantrumnGameModeBase::StartGame()
 {
-	CurrentGameState = ETantrumnGameState::Playing;
+	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
+	{
+		TantrumnGameState->SetGameState(EGameState::Playing);
+		TantrumnGameState->ClearResults();
+	}
+	
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* PlayerController = Iterator->Get();
@@ -54,52 +80,12 @@ void ATantrumnGameModeBase::StartGame()
 			FInputModeGameOnly InputMode;
 			PlayerController->SetInputMode(InputMode);
 			PlayerController->SetShowMouseCursor(false);
-		}
-	}
-}
 
-// Countdown timer for game start
-void ATantrumnGameModeBase::DisplayCountdown()
-{
-	// Multiplayer consideration for adding widgets to player screens
-	if (!GameWidgetClass)
-	{
-		return;
-	}
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-	{
-		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController && PlayerController->PlayerState && !MustSpectate(PlayerController))
-		{
-			if (UTantrumnGameWidget* GameWidget = CreateWidget<UTantrumnGameWidget>(PlayerController, GameWidgetClass))
+			if (ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>())
 			{
-				GameWidget->AddToPlayerScreen();
-				GameWidget->StartCountDown(GameCountDownDuration, this);
-				GameWidgets.Add(PlayerController, GameWidget);
+				PlayerState->SetCurrentState(EPlayerGameState::Playing);
+				PlayerState->SetIsWinner(false);
 			}
-		}
-	}
-}
-
-ETantrumnGameState ATantrumnGameModeBase::GetCurrentGameState() const
-{
-	return CurrentGameState;
-}
-
-void ATantrumnGameModeBase::PLayerReachedEnd(APlayerController* PlayerController)
-{
-	//one gamemode base is shared between players in local mp
-	CurrentGameState = ETantrumnGameState::Gameover;
-	UTantrumnGameWidget** GameWidget = GameWidgets.Find(PlayerController);
-	if (GameWidget)
-	{
-		(*GameWidget)->LevelComplete();
-		FInputModeUIOnly InputMode;
-		PlayerController->SetInputMode(InputMode);
-		PlayerController->SetShowMouseCursor(true);
-		if (PlayerController->GetCharacter() && PlayerController->GetCharacter()->GetCharacterMovement())
-		{
-			PlayerController->GetCharacter()->GetCharacterMovement()->DisableMovement();
 		}
 	}
 }
@@ -113,13 +99,31 @@ void ATantrumnGameModeBase::RestartPlayer(AController* NewPlayer)
 		if (PlayerController->GetCharacter() && PlayerController->GetCharacter()->GetCharacterMovement())
 		{
 			PlayerController->GetCharacter()->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+			ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>();
+			if (PlayerState)
+			{
+				PlayerState->SetCurrentState(EPlayerGameState::Waiting);
+			}
+		}
+	}
+
+	AttemptStartGame();
+}
+
+void ATantrumnGameModeBase::RestartGame()
+{
+	ResetLevel();
+
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* PlayerController = Iterator->Get();
+		if (PlayerController && PlayerController->PlayerState && !MustSpectate(PlayerController))
+		{
+			if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(PlayerController))
+			{
+				TantrumnPlayerController->ClientRestartGame();
+			}
+			RestartPlayer(PlayerController);
 		}
 	}
 }
-
-
-
-
-
-
-

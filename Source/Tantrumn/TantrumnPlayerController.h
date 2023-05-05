@@ -9,12 +9,8 @@
 #include "Sound/SoundCue.h"
 #include "TantrumnPlayerController.generated.h"
 
-/**
- * 
- */
-
-class ATantrumnGameModeBase;
 class UUserWidget;
+class ATantrumnGameStateBase;
 
 UCLASS()
 class TANTRUMN_API ATantrumnPlayerController : public APlayerController
@@ -22,7 +18,30 @@ class TANTRUMN_API ATantrumnPlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
-	virtual void ReceivedPlayer() override; 
+
+	// In Local MP it is needed to ensure the controller has receive the player in order to correctly set up the HUD
+	virtual void ReceivedPlayer() override;
+
+	// Called from GameMode, only on Authority will get get these calls
+	virtual void OnPossess(APawn* InPawn) override;
+	virtual void OnUnPossess() override;
+
+	UFUNCTION(Client, Reliable)
+	void ClientDisplayCountDown(float GameCountDownDuration);
+
+	UFUNCTION(Client, Reliable)
+	void ClientRestartGame();
+
+	/*
+	 * This needs to be named better, it's just displayer the end screen
+	 * this will be seperate, as it will come after the montage.
+	 * Client gets HUD Authority needs to replicate the montage
+	 */
+	UFUNCTION(Client, Reliable)
+	void ClientReachedEnd();
+
+	UFUNCTION(Server, Reliable)
+	void ServerRestartLevel();
 
 protected:
 
@@ -31,14 +50,15 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UPROPERTY()
-	ATantrumnGameModeBase* GameModeRef;
+	ATantrumnGameStateBase* TantrumnGameState;
+	bool CanProcessRequest() const;
 
 	// Enhanced Input Setup
 	UPROPERTY(BlueprintReadOnly, Category = "Enhanced Input")
 	TSoftObjectPtr<UInputMappingContext> InputMapping;	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enhanced Input")
 	class UTantrumnInputConfigRegistry* InputActions;
-
+	
 	// Character Movement Requests
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestJump();

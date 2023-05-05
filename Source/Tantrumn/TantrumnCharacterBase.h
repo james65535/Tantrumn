@@ -32,11 +32,41 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	// General Movement
+	
+	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode) override;
+	virtual void FellOutOfWorld(const UDamageType& dmgType) override;
+	
+	/*** General Movement ***/
+
+	// Sprint modifiers
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	void RequestSprintStart();
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	void RequestSprintEnd();
+	
+	// Called when player needs to be stunned from fall landing or otherwise
+	UFUNCTION(BlueprintCallable, Category = "Stun")
+	void RequestStunStart(const float DurationMultiplier);
+	
+	/*
+	 * Note:
+	 * Changing a replicated variable's value on the client is not recommended. The value will continue to differ from
+	 * the server's value until the next time the server detects a change and sends an update.
+	 * If the server's copy of the property does not change very often, it could be a long time before the client receives a correction.
+	 * 
+	 */
+	// Stun
+	UPROPERTY(BlueprintReadOnly, replicatedUsing=OnRep_IsStunned)
+	bool bIsStunned;
+	UFUNCTION()
+	virtual void OnRep_IsStunned();
+
+	// Rescue State Accessor
+	bool IsBeingRescued() const { return bIsBeingRescued; }
+
+	// Hover State Accessor
+	UFUNCTION(BlueprintPure)
+	bool IsHovering() const;
 
 	// Blueprint accessible throw and pull functions
 	UFUNCTION(BlueprintCallable, Category = "Throw")
@@ -62,22 +92,9 @@ public:
 	void OnThrowableAttached(AThrowableActor* InThrowableActor);
 	bool CanThrowObject() const { return CharacterThrowState == ECharacterThrowState::Attached;}
 
-	// Called when player needs to be stunned from fall landing or otherwise
-	UFUNCTION(BlueprintCallable, Category = "Stun")
-	void RequestStunStart(const float DurationMultiplier);
-	// Stun
-
-	/*
-	 * Note:
-	 * Changing a replicated variable's value on the client is not recommended. The value will continue to differ from
-	 * the server's value until the next time the server detects a change and sends an update.
-	 * If the server's copy of the property does not change very often, it could be a long time before the client receives a correction.
-	 * 
-	 */
-	UPROPERTY(BlueprintReadOnly, replicatedUsing=OnRep_IsStunned)
-	bool bIsStunned;
-	UFUNCTION()
-	virtual void OnRep_IsStunned();
+	// Animation Montage for times of celebration such as winning race
+	UFUNCTION(Server, Reliable)
+	void ServerPlayCelebrateMontage();
 
 protected:
 	// Called when the game starts or when spawned
@@ -89,6 +106,15 @@ protected:
 	// Custom character movement Component
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
 	class UTantrumnCharMovementComponent* TantrumnCharMoveComp;
+
+	// Server RPCs for character sprint
+	UFUNCTION(Server, Reliable)
+	void ServerSprintStart();
+	UFUNCTION(Server, Reliable)
+	void ServerSprintend();
+
+	
+	
 
 	// Hit checks for throwable object targets when performing pull action
 	void SphereCastPlayerView();
@@ -118,11 +144,15 @@ protected:
 
 	// Used for throw animation
 	bool PlayThrowMontage();
+	bool PlayCelebrateMontage();
+	void UpdateThrowMontagePlayRate();
 	void UnbindMontage();
 	UFUNCTION()
 	void OnMontageBlendingOut(UAnimMontage* Montage, bool bInterrupted);
 	UFUNCTION()
 	void OnMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayCelebrateMontage();
 	UFUNCTION()
 	void OnNotifyBeginReceived(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointNotifyPayload);
 	UFUNCTION()
@@ -131,6 +161,8 @@ protected:
 	UAnimMontage* ThrowMontage = nullptr;
 	FOnMontageBlendingOutStarted BlendingOutDelegate;
 	FOnMontageEnded MontageEndedDelegate;
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	UAnimMontage* CelebrateMontage = nullptr;
 
 	// Throwing defaults
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_CharacterThrowState, Category = "Throw")
@@ -152,6 +184,22 @@ protected:
 	float MaxImpactStunMultiplier = 3.0f;
 	UPROPERTY(EditAnywhere, Category = "Fall Impact")
 	USoundCue* HeavyLandSound = nullptr;
+
+	// Handle falling out of the world and rescue mechanics
+	UPROPERTY(Replicated)
+	FVector LastGroundPosition = FVector::ZeroVector;
+	UPROPERTY(ReplicatedUsing = OnRep_IsBeingRescued)
+	bool bIsBeingRescued = false;
+	UFUNCTION()
+	void OnRep_IsBeingRescued();
+	UPROPERTY(EditAnywhere, Category = "KillZ")
+	float TimeToRescuePlayer = 3.f;
+	FVector FallOutOfWorldPosition = FVector::ZeroVector;
+	float CurrentRescueTime = 0.0f;
+	// These only happen on the server.  The variable bIsBeingRescued is replicated
+	void StartRescue();
+	void UpdateRescue(float DeltaTime);
+	void EndRescue();
 
 private:
 

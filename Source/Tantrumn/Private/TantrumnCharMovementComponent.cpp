@@ -6,7 +6,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 
-
 UTantrumnCharMovementComponent::UTantrumnCharMovementComponent()
 {
 	
@@ -101,7 +100,8 @@ FNetworkPredictionData_Client* UTantrumnCharMovementComponent::GetPredictionData
 
 bool UTantrumnCharMovementComponent::IsStunned() const
 {
-	//return Safe_bWantsToStun; // TODO is it right to call value from the var for compressed flag operations?  Perhaps: Saved_bWantsToStun?
+	// return Safe_bWantsToStun; // TODO is it right to call value from the var for compressed flag operations?
+	// Perhaps: Saved_bWantsToStun?
 	return (Safe_bWantsToStun) && UpdatedComponent;
 }
 
@@ -161,7 +161,6 @@ void UTantrumnCharMovementComponent::RequestStunEnd(bool bClientSimulation)
 		TantrumnCharacter->bIsStunned = false;
 	}
 }
-
 
 void UTantrumnCharMovementComponent::OnStunCoolDownFinished()
 {

@@ -4,10 +4,14 @@
 #include "TantrumnPlayerController.h"
 #include "TantrumnCharacterBase.h"
 #include "TantrumnGameModeBase.h"
+#include "TantrumnGameInstance.h"
+#include "TantrumnGameStateBase.h"
+#include "TantrumnPlayerState.h"
 #include "TantrumnInputConfigRegistry.h"
 #include "EnhancedInput/Public/EnhancedInputComponent.h"
 #include "EnhancedInput//Public/EnhancedInputSubsystems.h"
 #include "EnhancedInput/Public/InputActionValue.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 // Console variable to toggle character throwing velocity
 static TAutoConsoleVariable<bool> CVarDisplayLaunchInputDelta(
@@ -19,6 +23,7 @@ static TAutoConsoleVariable<bool> CVarDisplayLaunchInputDelta(
 void ATantrumnPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+	TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>();
 
 	// Setup Enhanced Input
 	if (InputComponent)
@@ -106,11 +111,67 @@ void ATantrumnPlayerController::BeginPlay()
 	}
 }
 
+void ATantrumnPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+	UE_LOG(LogTemp, Warning, TEXT("OnPossess: %s"), *GetName());
+}
+
+void ATantrumnPlayerController::OnUnPossess()
+{
+	Super::OnUnPossess();
+	UE_LOG(LogTemp, Warning, TEXT("OnUnPossess: %s"), *GetName());
+}
+
+void ATantrumnPlayerController::ClientDisplayCountDown_Implementation(float GameCountDownDuration)
+{
+	if (UTantrumnGameInstance* TantrumnGameInstance = GetWorld()->GetGameInstance<UTantrumnGameInstance>())
+	{
+		TantrumnGameInstance->DisplayCountDown(GameCountDownDuration, this);
+	}
+}
+
+void ATantrumnPlayerController::ClientRestartGame_Implementation()
+{
+	if (UTantrumnGameInstance* TantrumnGameInstance = GetWorld()->GetGameInstance<UTantrumnGameInstance>())
+	{
+		TantrumnGameInstance->RestartGame(this);
+	}
+}
+
+void ATantrumnPlayerController::ClientReachedEnd_Implementation()
+{
+	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
+	{
+		TantrumnCharacterBase->ServerPlayCelebrateMontage();
+		TantrumnCharacterBase->GetCharacterMovement()->DisableMovement();
+	}
+
+	if (UTantrumnGameInstance* TantrumnGameInstance = GetWorld()->GetGameInstance<UTantrumnGameInstance>())
+	{
+		// TODO Call the level complete event for the widget...
+	}
+
+	FInputModeUIOnly InputMode;
+	SetInputMode(InputMode);
+	SetShowMouseCursor(true);
+}
+
+void ATantrumnPlayerController::ServerRestartLevel_Implementation()
+{
+	ATantrumnGameModeBase* TantrumnGameMode = GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>();
+	if (ensureMsgf(TantrumnGameMode, TEXT("ATantrumnPlayerController::ServerRestartLevel_Implementation Invalid Game Mode")))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Server: Restart Game Level Requested."))
+		TantrumnGameMode->RestartGame();
+	}
+}
+
 void ATantrumnPlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
-	GameModeRef = GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>();
-	if (GetNetMode() == ENetMode::NM_Standalone && GetLocalRole() == ROLE_SimulatedProxy)
+
+	if (IsLocalController())
 	{
 		if (HUDClass)
 		{
@@ -125,6 +186,10 @@ void ATantrumnPlayerController::ReceivedPlayer()
 
 void ATantrumnPlayerController::RequestMove(const FInputActionValue& ActionValue)
 {
+	if (!CanProcessRequest())
+	{
+		return;
+	}
 	const FVector2d MoveAction = ActionValue.Get<FVector2d>();
 	const FRotator MoveRotation(0, GetControlRotation().Yaw, 0);
 	
@@ -174,6 +239,10 @@ void ATantrumnPlayerController::RequestLook(const FInputActionValue& ActionValue
 
 void ATantrumnPlayerController::RequestJump()
 {
+	if (!CanProcessRequest())
+	{
+		return;
+	}
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->Jump();
@@ -190,6 +259,10 @@ void ATantrumnPlayerController::RequestStopJump()
 
 void ATantrumnPlayerController::RequestCrouch()
 {
+	if (!CanProcessRequest())
+	{
+		return;
+	}
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->Crouch();
@@ -206,6 +279,11 @@ void ATantrumnPlayerController::RequestStopCrouch()
 
 void ATantrumnPlayerController::RequestSprint()
 {
+	if (!CanProcessRequest())
+	{
+		return;
+	}
+	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->RequestSprintStart();
@@ -218,6 +296,27 @@ void ATantrumnPlayerController::RequestStopSprint()
 	{
 		TantrumnCharacter->RequestSprintEnd();
 	}
+}
+
+bool ATantrumnPlayerController::CanProcessRequest() const
+{
+	if (UTantrumnGameInstance* TantrumnGameInstance = GetWorld()->GetGameInstance<UTantrumnGameInstance>())
+	{
+		// if (TantrumnGameInstance->IsPlayableGame == false)
+		// {
+		// 	// Not playing a game, used for testing and debug gameplay
+		// 	return true;
+		// }
+		if (TantrumnGameState && TantrumnGameState->IsPlaying())
+		{
+			if (ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
+			{
+				return (TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Playing);
+			}
+		}
+	}
+
+	return false;
 }
 
 void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& ActionValue)
@@ -265,6 +364,10 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 
 void ATantrumnPlayerController::RequestPullObject()
 {
+	if (!CanProcessRequest())
+	{
+		return;
+	}
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
 		TantrumnCharacter->RequestPullObjectStart();
