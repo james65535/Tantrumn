@@ -6,6 +6,7 @@
 #include "Tantrumn/TantrumnPlayerController.h"
 #include "TantrumnPlayerState.h"
 #include "TantrumnCharMovementComponent.h"
+#include "TantrumnAIController.h"
 
 void ATantrumnGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -27,6 +28,7 @@ void ATantrumnGameStateBase::OnRep_GameState(const EGameState& OldGameState)
 void ATantrumnGameStateBase::OnPlayerReachedEnd(ATantrumnCharacterBase* TantrumnCharacter)
 {
 	ensureMsgf(HasAuthority(), TEXT("ATantrumnGameStateBase::OnPlayerReachedEnd being called from Non Authority!"));
+
 	if (ATantrumnPlayerController* TantrumnPlayerController = TantrumnCharacter->GetController<ATantrumnPlayerController>())
 	{
 		TantrumnPlayerController->ClientReachedEnd();
@@ -34,24 +36,42 @@ void ATantrumnGameStateBase::OnPlayerReachedEnd(ATantrumnCharacterBase* Tantrumn
 		
 		if (ATantrumnPlayerState* PlayerState = TantrumnPlayerController->GetPlayerState<ATantrumnPlayerState>())
 		{
-			const bool IsWinner = Results.Num() == 0;
-			PlayerState->SetIsWinner(IsWinner);
-			PlayerState->SetCurrentState(EPlayerGameState::Finished);
+			UpdateResults(PlayerState, TantrumnCharacter);
+
+			if (Results.Num() >= PlayerArray.Num())
+			{
+				GameState = EGameState::GameOver;
+			}
 		}
-
-		FGameResult Result = {TantrumnCharacter->GetName(), Result.Time = 5.0f};
-		// TODO Get the actual time it took in order to post to a leaderboard/results widget
-		Results.Add(Result);
-
-		// TODO This will not work once the JIP(Join In Progress) is enabled
-		if (Results.Num() == PlayerArray.Num())
+	}
+	else if (ATantrumnAIController* TantrumnAIController = TantrumnCharacter->GetController<ATantrumnAIController>())
+	{
+		if (ATantrumnPlayerState* PlayerState = TantrumnAIController->GetPlayerState<ATantrumnPlayerState>())
 		{
-			GameState = EGameState::GameOver;
-		}
+			UpdateResults(PlayerState, TantrumnCharacter);
+			TantrumnAIController->OnReachedEnd();
+		}	
 	}
 }
 
 void ATantrumnGameStateBase::ClearResults()
 {
 	Results.Empty();
+}
+
+void ATantrumnGameStateBase::UpdateResults(ATantrumnPlayerState* PlayerState, ATantrumnCharacterBase* TantrumnCharacter)
+{
+	if (!PlayerState || !TantrumnCharacter)
+	{
+		return;
+	}
+	
+	const bool IsWinner = Results.Num() == 0;
+	PlayerState->SetIsWinner(IsWinner);
+	PlayerState->SetCurrentState(EPlayerGameState::Finished);
+	
+	FGameResult Result;
+	Result.Name = TantrumnCharacter->GetName();
+	Result.Time = 5.0f;
+	Results.Add(Result);
 }

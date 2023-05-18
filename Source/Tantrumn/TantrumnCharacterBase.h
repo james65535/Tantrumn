@@ -85,6 +85,10 @@ public:
 	UFUNCTION(BlueprintPure)
 	ECharacterThrowState GetCharacterThrowState() const { return CharacterThrowState; }
 
+	// For AI as it is not able to look at objects.  Bypasses tracing done on tick()
+	UFUNCTION(BlueprintCallable)
+	bool AttemptPullObjectAtLocation(const FVector& InLocation);
+
 	// Apply an effect from a held throwable object
 	void RequestUseObject();
 
@@ -111,23 +115,20 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerSprintStart();
 	UFUNCTION(Server, Reliable)
-	void ServerSprintend();
-
-	
-	
+	void ServerSprintEnd();
 
 	// Hit checks for throwable object targets when performing pull action
 	void SphereCastPlayerView();
 	void SphereCastActorTransform();
 	void LineCastActorTransform();
-	void ProcessTraceResult(const FHitResult& HitResult);
+	void ProcessTraceResult(const FHitResult& HitResult,  bool bHighlight = true);
 
 	// Network capable RPCs
 	UFUNCTION(Server, Reliable)
 	void ServerPullObject(AThrowableActor* InThrowableActor);
 	UFUNCTION(Server, Reliable)
 	void ServerRequestPullObject(bool bIsPulling);
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerRequestThrowObject();
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastRequestThrowObject();

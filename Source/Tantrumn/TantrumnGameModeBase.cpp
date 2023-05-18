@@ -2,6 +2,8 @@
 
 
 #include "TantrumnGameModeBase.h"
+
+#include "TantrumnAIController.h"
 #include "TantrumnGameStateBase.h"
 #include "TantrumnPlayerController.h"
 #include "TantrumnPlayerState.h"
@@ -88,6 +90,17 @@ void ATantrumnGameModeBase::StartGame()
 			}
 		}
 	}
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		if (ATantrumnAIController* TantrumnAIController = Cast<ATantrumnAIController>(Iterator->Get()))
+		{
+			if (ATantrumnPlayerState* PlayerState = TantrumnAIController->GetPlayerState<ATantrumnPlayerState>())
+			{
+				PlayerState->SetCurrentState(EPlayerGameState::Playing);
+				PlayerState->SetIsWinner(false);
+			}
+		}
+	}
 }
 
 void ATantrumnGameModeBase::RestartPlayer(AController* NewPlayer)
@@ -112,6 +125,17 @@ void ATantrumnGameModeBase::RestartPlayer(AController* NewPlayer)
 
 void ATantrumnGameModeBase::RestartGame()
 {
+
+	// Destroy existing AI and let level reset create a fresh one on game restart
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		ATantrumnAIController* TantrumnAIController = Cast<ATantrumnAIController>(Iterator->Get());
+		if (TantrumnAIController && TantrumnAIController->GetPawn())
+		{
+			TantrumnAIController->Destroy(true);
+		}
+	}
+	
 	ResetLevel();
 
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)

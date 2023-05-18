@@ -4,8 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
+#include "Tantrumn/TantrumnCharacterBase.h"
 #include "TantrumnGameStateBase.generated.h"
 
+class ATantrumnPlayerState;
 // ENUM to track the current state of the game
 UENUM(BlueprintType)
 enum class EGameState : uint8
@@ -49,11 +51,13 @@ public:
 
 	// This will only be called on a system which has Authority
 	void OnPlayerReachedEnd(ATantrumnCharacterBase* TantrumnCharacter);
-
+	
 	UFUNCTION()
 	void ClearResults();
 
 protected:
+
+	void UpdateResults(ATantrumnPlayerState* PlayerState, ATantrumnCharacterBase* TantrumnCharacter);
 
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_GameState, Category = "States")
 	EGameState GameState = EGameState::None;

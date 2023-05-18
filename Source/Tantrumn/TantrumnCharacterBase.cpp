@@ -185,7 +185,7 @@ void ATantrumnCharacterBase::RequestSprintStart()
 void ATantrumnCharacterBase::RequestSprintEnd()
 {
 	TantrumnCharMoveComp->DoSprintEnd();
-	ServerSprintend();
+	ServerSprintEnd();
 }
 
 void ATantrumnCharacterBase::ServerSprintStart_Implementation()
@@ -193,7 +193,7 @@ void ATantrumnCharacterBase::ServerSprintStart_Implementation()
 	TantrumnCharMoveComp->DoSprintStart();
 }
 
-void ATantrumnCharacterBase::ServerSprintend_Implementation()
+void ATantrumnCharacterBase::ServerSprintEnd_Implementation()
 {
 	TantrumnCharMoveComp->DoSprintEnd();
 }
@@ -286,6 +286,12 @@ void ATantrumnCharacterBase::RequestThrowObject()
 			ResetThrowableObject();
 		}
 	}
+}
+
+bool ATantrumnCharacterBase::ServerRequestThrowObject_Validate()
+{
+	// Check the state or if the throwable actor exists etc to prevent this from being broadcast
+	return true;
 }
 
 void ATantrumnCharacterBase::ServerRequestThrowObject_Implementation()
@@ -511,7 +517,7 @@ void ATantrumnCharacterBase::LineCastActorTransform()
 	ProcessTraceResult(HitResult);
 }
 
-void ATantrumnCharacterBase::ProcessTraceResult(const FHitResult& HitResult)
+void ATantrumnCharacterBase::ProcessTraceResult(const FHitResult& HitResult, bool bHighlight /* = true */)
 {
 	// Check if there was an existing throwable object
 	// Remove the highlight to avoid wrong feedback
@@ -520,25 +526,22 @@ void ATantrumnCharacterBase::ProcessTraceResult(const FHitResult& HitResult)
 	const bool IsValidTarget = HitThrowableActor && HitThrowableActor->IsIdle();
 
 	// No need to process further if target is invalid
-	if (!IsValidTarget)
-	{
-		return;
-	}
-
-	// Clean up previous target reference
 	if (ThrowableActor && (!IsValidTarget || !IsSameActor))
 	{
 		ThrowableActor->ToggleHighlight(false);
 		ThrowableActor = nullptr;
 	}
 
-	
-	// Check if hit object can be pulled
-	if (IsValidTarget)
+	if (!IsValidTarget)
 	{
-		if (!ThrowableActor && HitThrowableActor)
+		return;
+	}
+
+	if (!IsSameActor)
+	{
+		ThrowableActor = HitThrowableActor;
+		if (bHighlight)
 		{
-			ThrowableActor = HitThrowableActor;
 			ThrowableActor->ToggleHighlight(true);
 		}
 	}
@@ -550,6 +553,7 @@ void ATantrumnCharacterBase::ProcessTraceResult(const FHitResult& HitResult)
 		if (GetVelocity().SizeSquared() < 100.0f)
 		{
 			ServerPullObject(ThrowableActor);
+			CharacterThrowState = ECharacterThrowState::Pulling;
 			ThrowableActor->ToggleHighlight(false);
 		}
 	}
@@ -750,6 +754,46 @@ void ATantrumnCharacterBase::EndEffect()
 	default:
 		break;
 	}
+}
+
+bool ATantrumnCharacterBase::AttemptPullObjectAtLocation(const FVector& InLocation)
+{
+	if (CharacterThrowState != ECharacterThrowState::None && CharacterThrowState != ECharacterThrowState::RequestingPull)
+	{
+		return false;
+	}
+
+	FVector StartPos = GetActorLocation();
+	FVector EndPos = InLocation;
+	FHitResult HitResult;
+	GetWorld() ? GetWorld()->LineTraceSingleByChannel(
+		HitResult,
+		StartPos,
+		EndPos,
+		ECollisionChannel::ECC_Visibility) : false;
+#if ENABLE_DRAW_DEBUG
+	if (CVarDisplayTrace->GetBool())
+	{
+		DrawDebugLine(
+			GetWorld(),
+			StartPos,
+			EndPos,
+			HitResult.bBlockingHit ? FColor::Red : FColor::White,
+			false);
+	}
+#endif
+
+	CharacterThrowState = ECharacterThrowState::RequestingPull;
+
+	// This will alter CharacterThrowState
+	ProcessTraceResult(HitResult, false);
+	
+	if (CharacterThrowState == ECharacterThrowState::Pulling)
+	{
+		return true;
+	}
+	CharacterThrowState = ECharacterThrowState::None;
+	return false;
 }
 
 void ATantrumnCharacterBase::RequestUseObject()
