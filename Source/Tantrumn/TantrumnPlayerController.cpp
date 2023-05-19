@@ -25,6 +25,18 @@ void ATantrumnPlayerController::BeginPlay()
 	Super::BeginPlay();
 	TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>();
 
+	// Get the appropriate HUD for the game
+	if (ATantrumnGameModeBase* GameMode = GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>())
+	{
+		HUDClass = GameMode->GetWidgetClass();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Player Controller Unable to get Gamemode in Order to set UI"))
+		// TODO Setup default widgetclass
+	}
+	
+
 	// Setup Enhanced Input
 	if (InputComponent)
 	{
@@ -101,12 +113,12 @@ void ATantrumnPlayerController::BeginPlay()
 			EIPlayerComponent->BindAction(InputActions->InputPullObject,
 				ETriggerEvent::Triggered,
 				this,
-				&ATantrumnPlayerController::RequestPullObject);
+				&ATantrumnPlayerController::RequestHoldObject);
 
 			EIPlayerComponent->BindAction(InputActions->InputPullObject,
 				ETriggerEvent::Completed,
 				this,
-				&ATantrumnPlayerController::RequestStopPullObject);
+				&ATantrumnPlayerController::RequestStopHoldObject);
 		}
 	}
 }
@@ -123,19 +135,27 @@ void ATantrumnPlayerController::OnUnPossess()
 	UE_LOG(LogTemp, Warning, TEXT("OnUnPossess: %s"), *GetName());
 }
 
-void ATantrumnPlayerController::ClientDisplayCountDown_Implementation(float GameCountDownDuration)
+void ATantrumnPlayerController::ClientDisplayCountDown_Implementation(float GameCountDownDuration, TSubclassOf<UTantrumnGameWidget> InGameWidgetClass)
 {
-	if (UTantrumnGameInstance* TantrumnGameInstance = GetWorld()->GetGameInstance<UTantrumnGameInstance>())
+	if(!TantrumnGameWidget)
 	{
-		TantrumnGameInstance->DisplayCountDown(GameCountDownDuration, this);
+		TantrumnGameWidget = CreateWidget<UTantrumnGameWidget>(this, InGameWidgetClass);
+	}
+	if (TantrumnGameWidget)
+	{
+		TantrumnGameWidget->AddToPlayerScreen();
+		TantrumnGameWidget->StartCountDown(GameCountDownDuration, this);
 	}
 }
 
 void ATantrumnPlayerController::ClientRestartGame_Implementation()
 {
-	if (UTantrumnGameInstance* TantrumnGameInstance = GetWorld()->GetGameInstance<UTantrumnGameInstance>())
+	if (TantrumnGameWidget)
 	{
-		TantrumnGameInstance->RestartGame(this);
+		TantrumnGameWidget->RemoveResults();
+		FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
+		SetShowMouseCursor(false);
 	}
 }
 
@@ -145,24 +165,30 @@ void ATantrumnPlayerController::ClientReachedEnd_Implementation()
 	{
 		TantrumnCharacterBase->ServerPlayCelebrateMontage();
 		TantrumnCharacterBase->GetCharacterMovement()->DisableMovement();
+
+		TantrumnGameWidget->RemoveResults();
+		FInputModeUIOnly InputMode;
+		SetInputMode(InputMode);
+		SetShowMouseCursor(true);
 	}
 
 	if (UTantrumnGameInstance* TantrumnGameInstance = GetWorld()->GetGameInstance<UTantrumnGameInstance>())
 	{
-		// TODO Call the level complete event for the widget...
+		TantrumnGameWidget->DisplayResults();
 	}
-
-	FInputModeUIOnly InputMode;
-	SetInputMode(InputMode);
-	SetShowMouseCursor(true);
 }
+
+void ATantrumnPlayerController::OnRetrySelected()
+{
+	ServerRestartLevel();
+}
+
 
 void ATantrumnPlayerController::ServerRestartLevel_Implementation()
 {
 	ATantrumnGameModeBase* TantrumnGameMode = GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>();
 	if (ensureMsgf(TantrumnGameMode, TEXT("ATantrumnPlayerController::ServerRestartLevel_Implementation Invalid Game Mode")))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Server: Restart Game Level Requested."))
 		TantrumnGameMode->RestartGame();
 	}
 }
@@ -362,7 +388,7 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 	}
 }
 
-void ATantrumnPlayerController::RequestPullObject()
+void ATantrumnPlayerController::RequestHoldObject()
 {
 	if (!CanProcessRequest())
 	{
@@ -370,11 +396,18 @@ void ATantrumnPlayerController::RequestPullObject()
 	}
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		TantrumnCharacter->RequestPullObjectStart();
+		if (TantrumnCharacter->CanAim())
+		{
+			TantrumnCharacter->RequestAim();
+		}
+		else
+		{
+			TantrumnCharacter->RequestPullObjectStart();	
+		}
 	}
 }
 
-void ATantrumnPlayerController::RequestStopPullObject()
+void ATantrumnPlayerController::RequestStopHoldObject()
 {
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{

@@ -18,6 +18,7 @@ enum class ECharacterThrowState : uint8
 	Pulling			UMETA(DisplayName = "Pulling"),
 	Attached		UMETA(DisplayName = "Attached"),
 	Throwing		UMETA(DisplayName = "Throwing"),
+	Aiming			UMETA(DisplayName = "Aiming")
 };
 
 UCLASS()
@@ -31,7 +32,6 @@ public:
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
 	
 	virtual void OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode) override;
 	virtual void FellOutOfWorld(const UDamageType& dmgType) override;
@@ -78,10 +78,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Throw")
 	void ResetThrowableObject();
 	UFUNCTION(BlueprintPure)
-	bool IsPullingObject() const { return CharacterThrowState ==
-		ECharacterThrowState::Pulling ||
-			CharacterThrowState == ECharacterThrowState::RequestingPull ||
-				CharacterThrowState == ECharacterThrowState::Attached; }
+	bool IsPullingObject() const { return CharacterThrowState == ECharacterThrowState::Pulling ||
+		CharacterThrowState == ECharacterThrowState::RequestingPull; }
 	UFUNCTION(BlueprintPure)
 	ECharacterThrowState GetCharacterThrowState() const { return CharacterThrowState; }
 
@@ -89,12 +87,28 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool AttemptPullObjectAtLocation(const FVector& InLocation);
 
+	// Reaction to being hit by a throwable object
+	UFUNCTION(BlueprintCallable, Category = "Throw")
+	void NotifyHitByThrowable(AThrowableActor* InThrowable);
+	
 	// Apply an effect from a held throwable object
 	void RequestUseObject();
 
+	// Aiming Mechanics
+	UFUNCTION(BlueprintCallable, Category = "Throw")
+	bool CanAim() const { return CharacterThrowState == ECharacterThrowState::Attached;}
+	UFUNCTION(BlueprintCallable, Category = "Throw")
+	bool IsAiming() const { return CharacterThrowState == ECharacterThrowState::Aiming;}
+	UFUNCTION(BlueprintCallable, Category = "Throw")
+	void RequestAim();
+	UFUNCTION(BlueprintCallable, Category = "Throw")
+	void RequestStopAim();
+
 	// Internal throw functions
+	UFUNCTION(BlueprintPure, Category = "Throw")
+	bool IsThrowing() { return CharacterThrowState == ECharacterThrowState::Throwing; }
 	void OnThrowableAttached(AThrowableActor* InThrowableActor);
-	bool CanThrowObject() const { return CharacterThrowState == ECharacterThrowState::Attached;}
+	bool CanThrowObject() const { return CharacterThrowState == ECharacterThrowState::Aiming;}
 
 	// Animation Montage for times of celebration such as winning race
 	UFUNCTION(Server, Reliable)
@@ -142,6 +156,8 @@ protected:
 	void OnRep_CharacterThrowState(const ECharacterThrowState& OldCharacterThrowState);
 	// This was not in the class download file
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	UFUNCTION(Server, Reliable)
+	void ServerRequestToggleAim(bool IsAiming);
 
 	// Used for throw animation
 	bool PlayThrowMontage();

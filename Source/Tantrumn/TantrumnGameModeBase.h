@@ -36,6 +36,9 @@ public:
 	virtual void BeginPlay() override;
 	virtual void RestartPlayer(AController* NewPlayer) override;
 
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	TSubclassOf<UUserWidget> GetWidgetClass() const { return GameWidgetClass; }
+
 	void RestartGame();
 
 private:
@@ -46,6 +49,10 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Game Details")
 	float GameCountDownDuration = 4.0f;
 
+	// Widget for the Game Mode to Utilise
+	UPROPERTY(EditAnywhere, Category = "Widget")
+	TSubclassOf<UUserWidget> GameWidgetClass;
+	
 	FTimerHandle CountdownTimerHandle;
 
 	// Local player split screen

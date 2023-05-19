@@ -60,7 +60,7 @@ void ATantrumnGameModeBase::DisplayCountDown()
 		{
 			if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(PlayerController))
 			{
-				TantrumnPlayerController->ClientDisplayCountDown(GameCountDownDuration);
+				TantrumnPlayerController->ClientDisplayCountDown(GameCountDownDuration, GameWidgetClass);
 			}
 		}
 	}

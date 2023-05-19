@@ -9,6 +9,7 @@
 #include "Sound/SoundCue.h"
 #include "TantrumnPlayerController.generated.h"
 
+class UTantrumnGameWidget;
 class UUserWidget;
 class ATantrumnGameStateBase;
 
@@ -26,8 +27,12 @@ public:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
 
+	// Called by Game Widget
+	UFUNCTION(BlueprintCallable)
+	void OnRetrySelected();
+
 	UFUNCTION(Client, Reliable)
-	void ClientDisplayCountDown(float GameCountDownDuration);
+	void ClientDisplayCountDown(float GameCountDownDuration, TSubclassOf<UTantrumnGameWidget> InGameWidgetClass);
 
 	UFUNCTION(Client, Reliable)
 	void ClientRestartGame();
@@ -79,9 +84,9 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestThrowObject(const FInputActionValue& ActionValue);
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
-	void RequestPullObject();
+	void RequestHoldObject();
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
-	void RequestStopPullObject();
+	void RequestStopHoldObject();
 
 	// Character Look Inputs
 	UPROPERTY(EditAnywhere,Category = "CharacterMovement")
@@ -107,9 +112,13 @@ protected:
 	USoundCue* JumpSound = nullptr;
 
 	// Player HUD
-	UPROPERTY(EditAnywhere, Category = "HUD")
+	UPROPERTY(EditDefaultsOnly, Category = "HUD")
 	TSubclassOf<class UUserWidget> HUDClass;
 	UPROPERTY()
 	UUserWidget* HUDWidget;
+
+	// Player Game Widget
+	UPROPERTY()
+	UTantrumnGameWidget* TantrumnGameWidget;
 	
 };

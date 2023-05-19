@@ -20,39 +20,42 @@ class TANTRUMN_API UTantrumnGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
 
-public:
+/* Game Instance No Longer Required as HUD needs to be Player Side, ex Player Controller */
 
-	UPROPERTY(EditAnywhere, Category = "TantrumnRace")
-	bool IsPlayableGame = false;
 	
-	void DisplayCountDown(float GameCountDownDuration, ATantrumnPlayerController* TantrumnPlayerController);
-	void DisplayLevelComplete(ATantrumnPlayerController* TantrumnPlayerController);
-
-	// TODO This is never used
-	UFUNCTION(BlueprintPure)
-	ATantrumnGameStateBase* GetGameState() const { return TantrumnGameStateBase; }
-
-	UFUNCTION(BlueprintCallable)
-	void OnRetrySelected(ATantrumnPlayerController* TantrumnPlayerController);
-
-	UFUNCTION()
-	void RestartGame(ATantrumnPlayerController* TantrumnPlayerController);
-
-protected:
-
-	UFUNCTION()
-	void OnGameStateSet(AGameStateBase* GameStateBase);
-	
-private:
-
-	// Exposed Class to check the type of widget to display
-	UPROPERTY(EditAnywhere, Category = "Widget")
-	TSubclassOf<UTantrumnGameWidget> GameWidgetClass;
-
-	UPROPERTY()
-	TMap<APlayerController*, UTantrumnGameWidget*> GameWidgets;
-
-	UPROPERTY()
-	ATantrumnGameStateBase* TantrumnGameStateBase;
+// public:
+//
+// 	UPROPERTY(EditAnywhere, Category = "TantrumnRace")
+// 	bool IsPlayableGame = false;
+// 	
+// 	void DisplayCountDown(float GameCountDownDuration, ATantrumnPlayerController* TantrumnPlayerController);
+// 	void DisplayLevelComplete(ATantrumnPlayerController* TantrumnPlayerController);
+//
+// 	// TODO This is never used
+// 	UFUNCTION(BlueprintPure)
+// 	ATantrumnGameStateBase* GetGameState() const { return TantrumnGameStateBase; }
+//
+// 	UFUNCTION(BlueprintCallable)
+// 	void OnRetrySelected(ATantrumnPlayerController* TantrumnPlayerController);
+//
+// 	UFUNCTION()
+// 	void RestartGame(ATantrumnPlayerController* TantrumnPlayerController);
+//
+// protected:
+//
+// 	UFUNCTION()
+// 	void OnGameStateSet(AGameStateBase* GameStateBase);
+// 	
+// private:
+//
+// 	// Exposed Class to check the type of widget to display
+// 	UPROPERTY(EditAnywhere, Category = "Widget")
+// 	TSubclassOf<UTantrumnGameWidget> GameWidgetClass;
+//
+// 	UPROPERTY()
+// 	TMap<APlayerController*, UTantrumnGameWidget*> GameWidgets;
+//
+// 	UPROPERTY()
+// 	ATantrumnGameStateBase* TantrumnGameStateBase;
 	
 };

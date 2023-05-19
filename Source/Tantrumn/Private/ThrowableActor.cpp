@@ -54,20 +54,21 @@ void AThrowableActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPri
 		return;
 	}
 
-	// Three options when hit
-	// If in attached ignore
-
-	// If not our actor is being pulled or launched
-	// pulled we want to check that the hit is of the actor pulling
-	// in which case it's a successful attach
-
-	// If launched and hit a character that is not the launcher
-	// do damage of whatever we want
+	// TODO implement different effects
 	if (State == EState::Launch)
 	{
 		if (IInteractInterface* InteractObject = Cast<IInteractInterface>(Other))
 		{
 			InteractObject->Execute_ApplyEffect(Other, EffectType, false);
+		}
+
+		AActor* CurrentOwner = GetOwner();
+		if (CurrentOwner && CurrentOwner != Other)
+		{
+			if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(Other))
+			{
+				TantrumnCharacter->NotifyHitByThrowable(this);
+			}
 		}
 	}
 
@@ -193,12 +194,13 @@ void AThrowableActor::Launch(const FVector& InitialVelocity, AActor* Target)
 
 void AThrowableActor::Drop()
 {
-	if (State == EState::Attached)
+	if (State == EState::Attached || State == EState::Pull)
 	{
 		DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	}
 
 	ProjectileMovementComponent->Activate(true);
+	ProjectileMovementComponent->Velocity = FVector(0.0f, 0.0f, ProjectileMovementComponent->GetGravityZ());
 	ProjectileMovementComponent->HomingTargetComponent = nullptr;
 	State = EState::Dropped;
 }
