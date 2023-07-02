@@ -32,6 +32,15 @@ AThrowableActor::AThrowableActor()
 	}
 }
 
+bool AThrowableActor::IsIdle() const
+{
+	if (State == EState::Idle || State == EState::Dropped)
+	{
+		return true;
+	}
+	return false;
+}
+
 // Called when the game starts or when spawned
 void AThrowableActor::BeginPlay()
 {
@@ -62,7 +71,7 @@ void AThrowableActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPri
 			InteractObject->Execute_ApplyEffect(Other, EffectType, false);
 		}
 
-		AActor* CurrentOwner = GetOwner();
+		const AActor* CurrentOwner = GetOwner();
 		if (CurrentOwner && CurrentOwner != Other)
 		{
 			if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(Other))

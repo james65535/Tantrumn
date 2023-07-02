@@ -23,7 +23,7 @@ public:
 	//virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION(BlueprintCallable)
-	bool IsIdle() const { return State == EState::Idle; }
+	bool IsIdle() const;
 
 	UFUNCTION(BlueprintCallable)
 	bool Pull(AActor* InActor);

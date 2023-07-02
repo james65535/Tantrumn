@@ -12,7 +12,7 @@
  *
  * High Level Flow:
  * Client: On tick - Receive input state, run logic to derive intermediates state which produces output state on end.
- * Client: Send SavedMoves to Server containing three moves: OldMove(the oldest,unacknowledged important move), PendingMove, and NewMove.
+ * Client: Send SavedMoves to Server containing three moves: OldMove(the oldest,unacknowledgbited important move), PendingMove, and NewMove.
  * Server: Receive SavedState, process movement, reply back to client with an ack or movement correction.
  * Client: If receive ack, then move on, if correction then process correction next tick.
  * Note: CMC is not replicated, CMC ultimately uses an RPC call through Character to send data from client to server

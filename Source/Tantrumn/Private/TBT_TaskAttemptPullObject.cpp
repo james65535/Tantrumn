@@ -30,12 +30,15 @@ EBTNodeResult::Type UTBT_TaskAttemptPullObject::ExecuteTask(UBehaviorTreeCompone
 		TantrumnAIController->GetPawn<ATantrumnCharacterBase>() : nullptr;
 	if (TantrumnCharacter)
 	{
-		if (const UBlackboardComponent* MyBlackboard = OwnerComp.GetBlackboardComponent())
+		if (UBlackboardComponent* MyBlackboard = OwnerComp.GetBlackboardComponent())
 		{
+			
 			const FVector TargetLocation = MyBlackboard->GetValue<UBlackboardKeyType_Vector>(
 				BlackboardKey.GetSelectedKeyID());
+			MyBlackboard->ClearValue("Destination");
 			if (TantrumnCharacter->AttemptPullObjectAtLocation(TargetLocation))
 			{
+				MyBlackboard->SetValueAsBool("HasBall", true);
 				return EBTNodeResult::Succeeded;
 			}
 		}

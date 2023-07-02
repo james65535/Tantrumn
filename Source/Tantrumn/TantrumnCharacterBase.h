@@ -210,7 +210,7 @@ protected:
 	UFUNCTION()
 	void OnRep_IsBeingRescued();
 	UPROPERTY(EditAnywhere, Category = "KillZ")
-	float TimeToRescuePlayer = 3.f;
+	float TimeToRescuePlayer = 1.f;
 	FVector FallOutOfWorldPosition = FVector::ZeroVector;
 	float CurrentRescueTime = 0.0f;
 	// These only happen on the server.  The variable bIsBeingRescued is replicated
@@ -224,6 +224,16 @@ private:
 	UPROPERTY()
 	AThrowableActor* ThrowableActor;
 
+	/**
+	 * Checks for valid location in increasing circumference of sphere traces on X/Y plane
+	 * @param StartLoc The centrepoint of the circumference from which you want to check
+	 * @param ValidLoc If function returns true then ValidPos is updated with result otherwise unmodified
+	 * @param SearchRadius The radius utilised for checks
+	 * @param NumRetries The number of attempts to perform before abandoning query
+	 * @return TRUE if any hit is found
+	 */
+	bool IsLandingValid(FVector StartLoc, FVector& ValidLoc, float SearchRadius , uint8 NumRetries);
+	
 	// *** Interface Work *** //
 	virtual void ApplyEffect_Implementation(EEffectType EffectType, bool bIsBuff) override;
 	void EndEffect();

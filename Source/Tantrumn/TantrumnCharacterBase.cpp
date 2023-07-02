@@ -8,9 +8,8 @@
 #include "TantrumnCharMovementComponent.h"
 #include "ThrowableActor.h"
 #include "DrawDebugHelpers.h"
-#include "TantrumnGameInstance.h"
 #include "TantrumnPlayerState.h"
-#include "EntitySystem/MovieSceneEntitySystemRunner.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
 #include "VisualLogger/VisualLogger.h"
 
@@ -198,8 +197,8 @@ void ATantrumnCharacterBase::LineCastActorTransform()
 			GetWorld(),
 			StartPos,
 			EndPos,
-			HitResult.bBlockingHit ? FColor::Red : FColor::White,
-			false);
+			HitResult.bBlockingHit ? FColor::Red : FColor::Green,
+			false,-1,0,4);
 	}
 #endif
 	ProcessTraceResult(HitResult);
@@ -279,7 +278,6 @@ void ATantrumnCharacterBase::SphereCastPlayerView()
 	EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ? EDrawDebugTrace::ForOneFrame : EDrawDebugTrace::None;
 	TArray<AActor*> ActorsToIgnore;
 	ActorsToIgnore.Add(this);
-
 	
 	UKismetSystemLibrary::SphereTraceSingle(
 		GetWorld(),
@@ -314,7 +312,22 @@ void ATantrumnCharacterBase::OnMovementModeChanged(EMovementMode PrevMovementMod
 	{
 		if (!IsBeingRescued() && (PrevMovementMode == MOVE_Walking && TantrumnCharMoveComp->MovementMode == MOVE_Falling))
 		{
-			LastGroundPosition = GetActorLocation() + (GetActorForwardVector() * -100.0f) + (GetActorUpVector() * 100.0f);
+			LastGroundPosition = GetActorLocation() +
+				(GetActorForwardVector() * -100.0f) +
+				(GetActorUpVector() * 100.0f);
+			
+			// Ensure LastGroundPosition is a valid static location and not something which moves
+			FVector ValidLoc;
+			if(IsLandingValid(LastGroundPosition,ValidLoc,200.0f, 3))
+			{
+				LastGroundPosition = ValidLoc;
+			}
+			else
+			{
+				LastGroundPosition = GetActorLocation() +
+					(GetActorForwardVector() * -600.0f) +
+					(GetActorUpVector() * 100.0f);	
+			}
 		}
 	}
 
@@ -411,7 +424,9 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 		else if (FallImpactSpeed >= MinImpactSpeed && FallImpactSpeed < MaxImpactSpeed)
 		{
 			// Stun the player to affect movement for a duration
-			RequestStunStart(MinImpactStunMultiplier);
+			const float Duration = FMath::Clamp(MinImpactSpeed / FallImpactSpeed, 0.0f, 1.0f);
+			UE_LOG(LogTemp, Warning, TEXT("Character Impact Duration: %f"), Duration);
+			RequestStunStart(Duration * MinImpactStunMultiplier);
 		}
 		else if (FallImpactSpeed >= MaxImpactSpeed)
 		{
@@ -559,12 +574,12 @@ bool ATantrumnCharacterBase::AttemptPullObjectAtLocation(const FVector& InLocati
 	}
 
 	FVector StartPos = GetActorLocation();
-	FVector EndPos = InLocation;
+	//FVector EndPos = InLocation;
 	FHitResult HitResult;
 	GetWorld() ? GetWorld()->LineTraceSingleByChannel(
 		HitResult,
 		StartPos,
-		EndPos,
+		InLocation,
 		ECollisionChannel::ECC_Visibility) : false;
 #if ENABLE_DRAW_DEBUG
 	if (CVarDisplayTrace->GetBool())
@@ -572,7 +587,7 @@ bool ATantrumnCharacterBase::AttemptPullObjectAtLocation(const FVector& InLocati
 		DrawDebugLine(
 			GetWorld(),
 			StartPos,
-			EndPos,
+			InLocation,
 			HitResult.bBlockingHit ? FColor::Red : FColor::White,
 			false);
 	}
@@ -874,6 +889,64 @@ void ATantrumnCharacterBase::OnNotifyEndReceived(FName NotifyName, const FBranch
 }
 
 #pragma endregion Montage
+
+bool ATantrumnCharacterBase::IsLandingValid(FVector StartLoc, FVector& ValidLoc, float SearchRadius , uint8 NumRetries)
+{
+	// No need for multiple traces in circumference when radius is similar to sphere size
+	uint8 NumTraces = SearchRadius <= 20.0f ? 1 : 3;
+	
+	// Setup trace vars
+	FVector TraceStartLoc = StartLoc;
+	TArray<TEnumAsByte<EObjectTypeQuery>> TraceForObject;
+	TraceForObject.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+	float InnerSearchRad = SearchRadius;
+
+	// Whether to show visual trace for debugging
+	EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ? EDrawDebugTrace::ForOneFrame : EDrawDebugTrace::None;
+
+	// Perform the series of traces
+	for (uint8 i = 0; i < NumTraces; i++)
+	{
+		// Find vector on a circle
+		float RadianCalc = UKismetMathLibrary::MapRangeClamped(i, 0.0f, 3,
+			0.0f, 4.7f );
+		TraceStartLoc.X = StartLoc.X + InnerSearchRad * UKismetMathLibrary::Cos(RadianCalc);  
+		TraceStartLoc.Y = StartLoc.Y + InnerSearchRad * UKismetMathLibrary::Sin(RadianCalc);
+		FVector TraceEndLoc = TraceStartLoc - FVector(0.0f, 0.0f, 400.0f);
+		FHitResult HitResult;
+
+		UKismetSystemLibrary::SphereTraceSingleForObjects(
+			GetWorld(),
+			TraceStartLoc,
+			TraceEndLoc,
+			10.0f,
+			TraceForObject,
+			false,
+			TArray<AActor*>(),
+			DebugTrace,
+			HitResult,
+			true);
+
+		// Got one, time to go to the pub
+		if (HitResult.IsValidBlockingHit())
+		{
+			ValidLoc = TraceStartLoc;
+			return true;
+		}
+	}
+
+	// Found nothing so we give up and bail out
+	if (NumRetries <= 0)
+	{
+		return false;
+	}
+
+	// Prep for next search
+	SearchRadius *= 2.0f;
+	NumRetries--;
+	
+	return(IsLandingValid(StartLoc, ValidLoc, SearchRadius, NumRetries));
+}
 
 void ATantrumnCharacterBase::ApplyEffect_Implementation(EEffectType EffectType, bool bIsBuff)
 {

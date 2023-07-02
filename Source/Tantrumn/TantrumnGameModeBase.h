@@ -37,7 +37,7 @@ public:
 	virtual void RestartPlayer(AController* NewPlayer) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	TSubclassOf<UUserWidget> GetWidgetClass() const { return GameWidgetClass; }
+	TSubclassOf<UTantrumnGameWidget> GetWidgetClass() const { return GameWidgetClass; }
 
 	void RestartGame();
 
@@ -51,7 +51,7 @@ private:
 
 	// Widget for the Game Mode to Utilise
 	UPROPERTY(EditAnywhere, Category = "Widget")
-	TSubclassOf<UUserWidget> GameWidgetClass;
+	TSubclassOf<UTantrumnGameWidget> GameWidgetClass;
 	
 	FTimerHandle CountdownTimerHandle;
 
