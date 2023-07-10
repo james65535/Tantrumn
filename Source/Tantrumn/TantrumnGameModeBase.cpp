@@ -5,11 +5,11 @@
 
 #include "TantrumnAIController.h"
 #include "TantrumnGameStateBase.h"
+#include "TantrumnHUD.h"
 #include "TantrumnPlayerController.h"
 #include "TantrumnPlayerState.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Kismet/GameplayStatics.h"
 
 ATantrumnGameModeBase::ATantrumnGameModeBase()
 {
@@ -19,10 +19,32 @@ ATantrumnGameModeBase::ATantrumnGameModeBase()
 void ATantrumnGameModeBase::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
+	/**
+	 * If Game is in Start Menu then Player's HUD will take care of the rest
+	 * Otherwise we let the HUD of each player controller know the class of Widget to Display
+	 * for this Game Mode
+	 */
 	if (ATantrumnGameStateBase* TantrumnGameState= GetGameState<ATantrumnGameStateBase>())
 	{
-		TantrumnGameState->SetGameState(EGameState::Waiting);
+		if(bToggleInitialMainMenu)
+		{
+			TantrumnGameState->SetGameState(ETantrumnGameState::None);
+		} else
+		{
+			TantrumnGameState->SetGameState(ETantrumnGameState::Waiting);
+			for (FConstPlayerControllerIterator Iterator =
+				GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				if(ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(Iterator->Get()))
+				{
+					if(ATantrumnHUD* PlayerHUD = Cast<ATantrumnHUD>(PlayerController->GetHUD()))
+					{
+						PlayerHUD->SetLevelWidgetClass(GameWidgetClass);
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -30,18 +52,18 @@ void ATantrumnGameModeBase::AttemptStartGame()
 {
 	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
 	{
-		TantrumnGameState->SetGameState(EGameState::Waiting);
+		TantrumnGameState->SetGameState(ETantrumnGameState::Waiting);
 	}
 	
 	if (GetNumPlayers() == NumExpectedPlayers)
 	{
 		// This needs to be replicated, call a function on game instance and replicate
-		DisplayCountDown();
 		if (GameCountDownDuration > SMALL_NUMBER)
 		{
-			GetWorld()->GetTimerManager().SetTimer(CountdownTimerHandle,
-				this, &ATantrumnGameModeBase::StartGame,
-				GameCountDownDuration,
+			//DisplayCountDown();
+			GetWorld()->GetTimerManager().SetTimer(DelayStartTimerHandle,
+				this, &ATantrumnGameModeBase::DisplayCountDown,
+				DelayStartDuration,
 				false);
 		}
 		else
@@ -55,12 +77,19 @@ void ATantrumnGameModeBase::DisplayCountDown()
 {
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController && PlayerController->PlayerState && !MustSpectate(PlayerController))
+		if(ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(Iterator->Get()))
 		{
-			if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(PlayerController))
+			if(!MustSpectate(PlayerController))
 			{
-				TantrumnPlayerController->ClientDisplayCountDown(GameCountDownDuration, GameWidgetClass);
+				if(ATantrumnHUD* PlayerHUD = Cast<ATantrumnHUD>(PlayerController->GetHUD()))
+				{
+					PlayerHUD->DisplayGameTimer(GameCountDownDuration);
+					GetWorld()->GetTimerManager().SetTimer(
+						CountdownTimerHandle,
+						this, &ATantrumnGameModeBase::StartGame,
+						GameCountDownDuration,
+						false);
+				} 
 			}
 		}
 	}
@@ -70,7 +99,7 @@ void ATantrumnGameModeBase::StartGame()
 {
 	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
 	{
-		TantrumnGameState->SetGameState(EGameState::Playing);
+		TantrumnGameState->SetGameState(ETantrumnGameState::Playing);
 		TantrumnGameState->ClearResults();
 	}
 	
@@ -141,13 +170,21 @@ void ATantrumnGameModeBase::RestartGame()
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController && PlayerController->PlayerState && !MustSpectate(PlayerController))
+		if (PlayerController && PlayerController->PlayerState)
 		{
-			if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(PlayerController))
+			if (!MustSpectate(PlayerController))
 			{
-				TantrumnPlayerController->ClientRestartGame();
+				if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(PlayerController))
+				{
+					TantrumnPlayerController->ClientRestartGame();
+				}
+				RestartPlayer(PlayerController);
+				// InitializeHUDForPlayer(PlayerController);  // TODO Check for way to reset hud
 			}
-			RestartPlayer(PlayerController);
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("GameMode loadout triggered"));
+			}
 		}
 	}
 }

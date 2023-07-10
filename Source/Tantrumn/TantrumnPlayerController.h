@@ -12,6 +12,7 @@
 class UTantrumnGameWidget;
 class UUserWidget;
 class ATantrumnGameStateBase;
+class ATantrumnHUD;
 
 UCLASS()
 class TANTRUMN_API ATantrumnPlayerController : public APlayerController
@@ -20,51 +21,66 @@ class TANTRUMN_API ATantrumnPlayerController : public APlayerController
 
 public:
 
-	// In Local MP it is needed to ensure the controller has receive the player in order to correctly set up the HUD
-	virtual void ReceivedPlayer() override;
+	/** In Local MP it is needed to ensure the controller has receive the player in order to correctly set up the HUD */
+	// TODO test this
+	//virtual void ReceivedPlayer() override;
 
-	// Called from GameMode, only on Authority will get get these calls
+	/** Called from GameMode, only on Authority will get get these calls */
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
 
-	// Called by Game Widget
-	UFUNCTION(BlueprintCallable)
+	/** Called by Game Widget */
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void OnRetrySelected();
 
-	UFUNCTION(Client, Reliable)
-	void ClientDisplayCountDown(float GameCountDownDuration, TSubclassOf<UTantrumnGameWidget> InGameWidgetClass);
-
-	UFUNCTION(Client, Reliable)
+	UFUNCTION(Client, Reliable, Category = "Tantrumn")
 	void ClientRestartGame();
-
+	
 	/*
-	 * This needs to be named better, it's just displayer the end screen
-	 * this will be seperate, as it will come after the montage.
+	 * TODO This needs to be named better, it just displays the end screen
+	 * this will be separate, as it will come after the montage.
 	 * Client gets HUD Authority needs to replicate the montage
 	 */
-	UFUNCTION(Client, Reliable)
+	UFUNCTION(Client, Reliable, Category = "Tantrumn")
 	void ClientReachedEnd();
-
-	UFUNCTION(Server, Reliable)
+	
+	UFUNCTION(Server, Reliable, Category = "Tantrumn")
 	void ServerRestartLevel();
 
 protected:
-
-	// Game play start and cleanup
+	
+	/** Class overrides */
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+private:
+	
+	/** Player HUD */
+	UPROPERTY(EditDefaultsOnly, Category = "HUD")
+	ATantrumnHUD* PlayerHUD;
+	
+	/** Level Menu Display Requests */
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void RequestDisplayLevelMenu();
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void RequestRemoveLevelMenu();
 
 	UPROPERTY()
 	ATantrumnGameStateBase* TantrumnGameState;
 	bool CanProcessRequest() const;
 
-	// Enhanced Input Setup
-	UPROPERTY(BlueprintReadOnly, Category = "Enhanced Input")
-	TSoftObjectPtr<UInputMappingContext> InputMapping;	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enhanced Input")
+	/** Enhanced Input Setup */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Enhanced Input", meta = (AllowPrivateAccess))
+	TSoftObjectPtr<UInputMappingContext> GameInputMapping;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Enhanced Input", meta = (AllowPrivateAccess))
+	TSoftObjectPtr<UInputMappingContext> MenuInputMapping;	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Enhanced Input", meta = (AllowPrivateAccess))
 	class UTantrumnInputConfigRegistry* InputActions;
+	/** Call to change Input Mapping Contexts for Controller */
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void SetInputContext(TSoftObjectPtr<UInputMappingContext> InMappingContext);
 	
-	// Character Movement Requests
+	/** Character Movement Requests */
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestJump();
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
@@ -87,8 +103,7 @@ protected:
 	void RequestHoldObject();
 	UFUNCTION(BlueprintCallable, Category = "CharacterMovement")
 	void RequestStopHoldObject();
-
-	// Character Look Inputs
+	/** Character Look Inputs */
 	UPROPERTY(EditAnywhere,Category = "CharacterMovement")
 	float BaseLookPitchRate = 90.0f;
 	UPROPERTY(EditAnywhere,Category = "CharacterMovement")
@@ -96,29 +111,20 @@ protected:
 	/** Base lookup rate, in deg/sec.  Other scaling may affect final lookup rate */
 	UPROPERTY(EditAnywhere, Category = "Look")
 	float BaseLookUpRate = 90.0f;
-	/** Base lookright rate, in deg/sec.  Other scaling may affect final lookup rate */
+	/** Base look right rate, in deg/sec.  Other scaling may affect final lookup rate */
 	UPROPERTY(EditAnywhere, Category = "Look")
 	float BaseLookRightRate = 90.0f;
 
-	// Flick setup for throw action
-	// Used to determine flick of axis
-	// float LastDelta = 0.0f;
+	/**
+	 * Flick setup for throw action
+	 * Used to determine flick of axis
+	 * float LastDelta = 0.0f;
+	 */
 	float LastAxis = 0.0f;
 	UPROPERTY(EditAnywhere, Category = "Input")
 	float FlickThreshold = 0.75;
 
-	// Sound Cue for Jumping
+	/** Sound Cue for Jumping */
 	UPROPERTY(EditAnywhere, Category = "Sound")
 	USoundCue* JumpSound = nullptr;
-
-	// Player HUD
-	UPROPERTY(EditDefaultsOnly, Category = "HUD")
-	TSubclassOf<class UUserWidget> HUDClass;
-	UPROPERTY()
-	UUserWidget* HUDWidget;
-
-	// Player Game Widget
-	UPROPERTY()
-	UTantrumnGameWidget* TantrumnGameWidget;
-	
 };

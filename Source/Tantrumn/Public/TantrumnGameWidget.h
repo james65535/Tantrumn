@@ -16,16 +16,15 @@ class TANTRUMN_API UTantrumnGameWidget : public UUserWidget
 
 public:
 
-	UFUNCTION(BlueprintImplementableEvent)
-	void StartCountDown(float CountDownTime, class ATantrumnPlayerController* TantrumnPlayerController);
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
+	void InitiateGameTimer(float CountDownTime, class ATantrumnPlayerController* TantrumnPlayerController);
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
 	void LevelComplete();
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
 	void DisplayResults();
 
-	UFUNCTION(BlueprintImplementableEvent)
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
 	void RemoveResults();
-	
 };

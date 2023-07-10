@@ -15,14 +15,14 @@ void ATantrumnGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 	FDoRepLifetimeParams SharedParams;
 	SharedParams.bIsPushBased = true;
 
-	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnGameStateBase, GameState, SharedParams);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnGameStateBase, TantrumnGameState, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnGameStateBase, Results, SharedParams);
 }
 
-void ATantrumnGameStateBase::OnRep_GameState(const EGameState& OldGameState)
+void ATantrumnGameStateBase::OnRep_GameState(const ETantrumnGameState& OldGameState)
 {
 	UE_LOG(LogTemp, Warning, TEXT("OldGameState: %s"), *UEnum::GetDisplayValueAsText(OldGameState).ToString());
-	UE_LOG(LogTemp, Warning, TEXT("GameState: %s"), *UEnum::GetDisplayValueAsText(GameState).ToString());
+	UE_LOG(LogTemp, Warning, TEXT("TantrumnGameState: %s"), *UEnum::GetDisplayValueAsText(TantrumnGameState).ToString());
 }
 
 void ATantrumnGameStateBase::OnPlayerReachedEnd(ATantrumnCharacterBase* TantrumnCharacter)
@@ -40,7 +40,7 @@ void ATantrumnGameStateBase::OnPlayerReachedEnd(ATantrumnCharacterBase* Tantrumn
 
 			if (Results.Num() >= PlayerArray.Num())
 			{
-				GameState = EGameState::GameOver;
+				TantrumnGameState = ETantrumnGameState::GameOver;
 			}
 		}
 	}

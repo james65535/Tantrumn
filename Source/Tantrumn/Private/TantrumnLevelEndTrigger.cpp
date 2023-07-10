@@ -4,6 +4,10 @@
 #include "TantrumnLevelEndTrigger.h"
 
 #include "TantrumnGameStateBase.h"
+#include "Components/BoxComponent.h"
+#include "Components/ShapeComponent.h"
+#include "Engine/BrushBuilder.h"
+#include "Engine/BrushShape.h"
 #include "Tantrumn/TantrumnCharacterBase.h"
 #include "Tantrumn/TantrumnGameModeBase.h"
 

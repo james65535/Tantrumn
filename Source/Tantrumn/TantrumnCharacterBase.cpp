@@ -310,11 +310,11 @@ void ATantrumnCharacterBase::OnMovementModeChanged(EMovementMode PrevMovementMod
 {
 	if (HasAuthority())
 	{
-		if (!IsBeingRescued() && (PrevMovementMode == MOVE_Walking && TantrumnCharMoveComp->MovementMode == MOVE_Falling))
+		if (!IsBeingRescued() &&
+			(PrevMovementMode == MOVE_Walking && TantrumnCharMoveComp->MovementMode == MOVE_Falling))
 		{
-			LastGroundPosition = GetActorLocation() +
-				(GetActorForwardVector() * -100.0f) +
-				(GetActorUpVector() * 100.0f);
+			LastGroundPosition =
+				GetActorLocation() +(GetActorForwardVector() * -100.0f) +(GetActorUpVector() * 100.0f);
 			
 			// Ensure LastGroundPosition is a valid static location and not something which moves
 			FVector ValidLoc;
@@ -324,9 +324,8 @@ void ATantrumnCharacterBase::OnMovementModeChanged(EMovementMode PrevMovementMod
 			}
 			else
 			{
-				LastGroundPosition = GetActorLocation() +
-					(GetActorForwardVector() * -600.0f) +
-					(GetActorUpVector() * 100.0f);	
+				LastGroundPosition =
+					GetActorLocation() +(GetActorForwardVector() * -600.0f) +(GetActorUpVector() * 100.0f);	
 			}
 		}
 	}
@@ -383,7 +382,6 @@ void ATantrumnCharacterBase::RequestStunStart(const float DurationMultiplier)
 	}
 
 	// TODO check if we need to implement stop sprint state
-	
 	TantrumnCharMoveComp->RequestStun(false, DurationMultiplier);
 }
 
@@ -396,12 +394,9 @@ void ATantrumnCharacterBase::OnRep_IsStunned()
 		{
 			TantrumnCharMoveComp->RequestStun(true, MaxImpactStunMultiplier);
 		}
-		else
+		else if (!bIsStunned)
 		{
-			if (!bIsStunned)
-			{
-				TantrumnCharMoveComp->RequestStunEnd(true);
-			}
+			TantrumnCharMoveComp->RequestStunEnd(true);
 		}
 	}
 }
@@ -425,7 +420,6 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 		{
 			// Stun the player to affect movement for a duration
 			const float Duration = FMath::Clamp(MinImpactSpeed / FallImpactSpeed, 0.0f, 1.0f);
-			UE_LOG(LogTemp, Warning, TEXT("Character Impact Duration: %f"), Duration);
 			RequestStunStart(Duration * MinImpactStunMultiplier);
 		}
 		else if (FallImpactSpeed >= MaxImpactSpeed)
@@ -436,8 +430,10 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 			// Soundcue triggers
 			if (HeavyLandSound && GetOwner())
 			{
-				FVector CharacterLocation = GetOwner()->GetActorLocation();
-				UGameplayStatics::PlaySoundAtLocation(this, HeavyLandSound, CharacterLocation);
+				UGameplayStatics::PlaySoundAtLocation(
+					this,
+					HeavyLandSound,
+					GetOwner()->GetActorLocation());
 			}
 		}
 
@@ -445,10 +441,12 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 		// Calculate Severity of Impact
 		const float DeltaImpact = MaxImpactSpeed - MinImpactSpeed;
 		const float FallRatio = FMath::Clamp((FallImpactSpeed - MinImpactSpeed) / DeltaImpact, 0.0f, 1.0f);
+
 		// Apply force feedback
 		const bool bAffectSmall = FallRatio <= 0.5;
 		const bool bAffectLarge = FallRatio > 0.5;
-		PlayerController->PlayDynamicForceFeedback(FallRatio,
+		PlayerController->PlayDynamicForceFeedback(
+			FallRatio,
 			0.5f,
 			bAffectLarge, bAffectSmall,
 			bAffectLarge, bAffectSmall);
@@ -458,16 +456,13 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 void ATantrumnCharacterBase::UpdateRescue(float DeltaTime)
 {
 	CurrentRescueTime += DeltaTime;
-	float Alpha = FMath::Clamp(CurrentRescueTime / TimeToRescuePlayer, 0.0f, 1.0f);
-	FVector NewPlayerLocation = FMath::Lerp(FallOutOfWorldPosition, LastGroundPosition, Alpha);
+	const float Alpha = FMath::Clamp(CurrentRescueTime / TimeToRescuePlayer, 0.0f, 1.0f);
+	const FVector NewPlayerLocation = FMath::Lerp(FallOutOfWorldPosition, LastGroundPosition, Alpha);
 	SetActorLocation(NewPlayerLocation);
 
-	if (HasAuthority())
+	if (HasAuthority() && Alpha >= 1.0f)
 	{
-		if (Alpha >= 1.0f)
-		{
 			EndRescue();
-		}
 	}
 }
 
@@ -504,7 +499,7 @@ void ATantrumnCharacterBase::EndRescue()
 
 bool ATantrumnCharacterBase::IsHovering() const
 {
-	if (ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
+	if (const ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
 	{
 		return TantrumnPlayerState->GetCurrentState() != EPlayerGameState::Playing;
 	}
@@ -573,7 +568,7 @@ bool ATantrumnCharacterBase::AttemptPullObjectAtLocation(const FVector& InLocati
 		return false;
 	}
 
-	FVector StartPos = GetActorLocation();
+	const FVector StartPos = GetActorLocation();
 	//FVector EndPos = InLocation;
 	FHitResult HitResult;
 	GetWorld() ? GetWorld()->LineTraceSingleByChannel(
@@ -685,8 +680,8 @@ void ATantrumnCharacterBase::ServerBeginThrow_Implementation()
 	// and doesn't travel in the desired direction
 	if (ThrowableActor->GetRootComponent())
 	{
-		UPrimitiveComponent* RootPrimitiveComponent = Cast<UPrimitiveComponent>(ThrowableActor->GetRootComponent());
-		if (RootPrimitiveComponent)
+		if (UPrimitiveComponent* RootPrimitiveComponent =
+			Cast<UPrimitiveComponent>(ThrowableActor->GetRootComponent()))
 		{
 			RootPrimitiveComponent->IgnoreActorWhenMoving(this, true);
 		}
@@ -708,12 +703,12 @@ void ATantrumnCharacterBase::ServerBeginThrow_Implementation()
 void ATantrumnCharacterBase::ServerFinishThrow_Implementation()
 {
 	CharacterThrowState = ECharacterThrowState::None;
-	// This only happened on the locally controlled actor
+	// This only happens on the locally controlled actor
 	MoveIgnoreActorRemove(ThrowableActor);
 	if (ThrowableActor->GetRootComponent())
 	{
-		UPrimitiveComponent* RootPrimitiveComponent = Cast<UPrimitiveComponent>(ThrowableActor->GetRootComponent());
-		if (RootPrimitiveComponent)
+		if (UPrimitiveComponent* RootPrimitiveComponent =
+			Cast<UPrimitiveComponent>(ThrowableActor->GetRootComponent()))
 		{
 			RootPrimitiveComponent->IgnoreActorWhenMoving(this, false);
 		}
@@ -733,6 +728,7 @@ void ATantrumnCharacterBase::ResetThrowableObject()
 	ThrowableActor = nullptr;
 }
 
+// TODO remove logs
 void ATantrumnCharacterBase::OnRep_CharacterThrowState(const ECharacterThrowState& OldCharacterThrowState)
 {
 	if (CharacterThrowState != OldCharacterThrowState)
@@ -761,8 +757,7 @@ void ATantrumnCharacterBase::OnRep_CharacterThrowState(const ECharacterThrowStat
 // Configure delegates for montage play states: start/end to correlate behavior to animations
 bool ATantrumnCharacterBase::PlayThrowMontage()
 {
-	const float PlayRate = 1.0f;
-	bool bPlayedSuccessfully = PlayAnimMontage(ThrowMontage, PlayRate) > 0.0f;
+	const bool bPlayedSuccessfully = PlayAnimMontage(ThrowMontage, 1.0f) > 0.0f;
 	if (bPlayedSuccessfully)
 	{
 		// Run this for local system
@@ -791,8 +786,7 @@ bool ATantrumnCharacterBase::PlayThrowMontage()
 
 bool ATantrumnCharacterBase::PlayCelebrateMontage()
 {
-	const float PlayRate = 1.0f;
-	bool bPlayedSuccessfully = PlayAnimMontage(CelebrateMontage, PlayRate) > 0.f;
+	const bool bPlayedSuccessfully = PlayAnimMontage(CelebrateMontage, 1.0f) > 0.f;
 	if (bPlayedSuccessfully)
 	{
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
@@ -890,6 +884,55 @@ void ATantrumnCharacterBase::OnNotifyEndReceived(FName NotifyName, const FBranch
 
 #pragma endregion Montage
 
+void ATantrumnCharacterBase::ApplyEffect_Implementation(EEffectType EffectType, bool bIsBuff)
+{
+	// Prevents multiple buffs stacking
+	if (bIsUnderEffect) return;
+
+	CurrentEffect = EffectType;
+	bIsUnderEffect = true;
+	bIsEffectBuff = bIsBuff;
+
+	switch (CurrentEffect)
+	{
+	case EEffectType::SPEED :
+		bIsEffectBuff ? TantrumnCharMoveComp->MaxWalkSpeed *= 2 : TantrumnCharMoveComp->DisableMovement();
+
+	default:
+		break;
+	}
+}
+
+void ATantrumnCharacterBase::EndEffect()
+{
+	bIsUnderEffect = false;
+
+	switch(CurrentEffect)
+	{
+		case EEffectType::SPEED :
+		{
+			bIsEffectBuff ?
+				TantrumnCharMoveComp->MaxWalkSpeed /= 2, RequestSprintEnd() :
+				TantrumnCharMoveComp->SetMovementMode(MOVE_Walking);
+			break;
+		}
+		default: break;
+	}
+}
+
+void ATantrumnCharacterBase::NotifyHitByThrowable(AThrowableActor* InThrowable)
+{
+	RequestStunStart(MaxImpactStunMultiplier);
+	ResetThrowableObject();
+}
+
+void ATantrumnCharacterBase::RequestUseObject()
+{
+	ApplyEffect(ThrowableActor->GetEffectType(), true);
+	ThrowableActor->Destroy();
+	ResetThrowableObject();
+}
+
 bool ATantrumnCharacterBase::IsLandingValid(FVector StartLoc, FVector& ValidLoc, float SearchRadius , uint8 NumRetries)
 {
 	// No need for multiple traces in circumference when radius is similar to sphere size
@@ -902,16 +945,25 @@ bool ATantrumnCharacterBase::IsLandingValid(FVector StartLoc, FVector& ValidLoc,
 	float InnerSearchRad = SearchRadius;
 
 	// Whether to show visual trace for debugging
-	EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ? EDrawDebugTrace::ForOneFrame : EDrawDebugTrace::None;
+	EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ?
+		EDrawDebugTrace::ForOneFrame : EDrawDebugTrace::None;
 
 	// Perform the series of traces
 	for (uint8 i = 0; i < NumTraces; i++)
 	{
 		// Find vector on a circle
-		float RadianCalc = UKismetMathLibrary::MapRangeClamped(i, 0.0f, 3,
+		// TODO look into switching this for ukismet
+		float RadianCalcAlt = FMath::GetMappedRangeValueClamped(
+			UE::Math::TVector2<float>( 0.0f, 3.0f),
+			UE::Math::TVector2<float>(0.0f, 4.7f),
+			i);
+		
+		float RadianCalc = UKismetMathLibrary::MapRangeClamped(i,
+			0.0f, 3.0f,
 			0.0f, 4.7f );
-		TraceStartLoc.X = StartLoc.X + InnerSearchRad * UKismetMathLibrary::Cos(RadianCalc);  
-		TraceStartLoc.Y = StartLoc.Y + InnerSearchRad * UKismetMathLibrary::Sin(RadianCalc);
+		
+		TraceStartLoc.X = StartLoc.X + InnerSearchRad * FMath::Cos(RadianCalc);  
+		TraceStartLoc.Y = StartLoc.Y + InnerSearchRad * FMath::Sin(RadianCalc);
 		FVector TraceEndLoc = TraceStartLoc - FVector(0.0f, 0.0f, 400.0f);
 		FHitResult HitResult;
 
@@ -946,51 +998,4 @@ bool ATantrumnCharacterBase::IsLandingValid(FVector StartLoc, FVector& ValidLoc,
 	NumRetries--;
 	
 	return(IsLandingValid(StartLoc, ValidLoc, SearchRadius, NumRetries));
-}
-
-void ATantrumnCharacterBase::ApplyEffect_Implementation(EEffectType EffectType, bool bIsBuff)
-{
-	// Prevents multiple buffs stacking
-	if (bIsUnderEffect) return;
-
-	CurrentEffect = EffectType;
-	bIsUnderEffect = true;
-	bIsEffectBuff = bIsBuff;
-
-	switch (CurrentEffect)
-	{
-	case EEffectType::SPEED :
-		bIsEffectBuff ? TantrumnCharMoveComp->MaxWalkSpeed *= 2 : TantrumnCharMoveComp->DisableMovement();
-
-	default:
-		break;
-	}
-}
-
-void ATantrumnCharacterBase::EndEffect()
-{
-	bIsUnderEffect = false;
-
-	switch(CurrentEffect)
-	{
-	case EEffectType::SPEED :
-		bIsEffectBuff ? TantrumnCharMoveComp->MaxWalkSpeed /= 2, RequestSprintEnd() : TantrumnCharMoveComp->SetMovementMode(MOVE_Walking);
-		break;
-	default:
-		break;
-	}
-}
-
-void ATantrumnCharacterBase::NotifyHitByThrowable(AThrowableActor* InThrowable)
-{
-	RequestStunStart(MaxImpactStunMultiplier);
-
-	ResetThrowableObject();
-}
-
-void ATantrumnCharacterBase::RequestUseObject()
-{
-	ApplyEffect(ThrowableActor->GetEffectType(), true);
-	ThrowableActor->Destroy();
-	ResetThrowableObject();
 }

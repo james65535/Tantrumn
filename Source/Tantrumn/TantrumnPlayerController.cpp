@@ -4,8 +4,8 @@
 #include "TantrumnPlayerController.h"
 #include "TantrumnCharacterBase.h"
 #include "TantrumnGameModeBase.h"
-#include "TantrumnGameInstance.h"
 #include "TantrumnGameStateBase.h"
+#include "TantrumnHUD.h"
 #include "TantrumnPlayerState.h"
 #include "TantrumnInputConfigRegistry.h"
 #include "EnhancedInput/Public/EnhancedInputComponent.h"
@@ -25,33 +25,26 @@ void ATantrumnPlayerController::BeginPlay()
 	Super::BeginPlay();
 	TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>();
 
-	// Get the appropriate HUD for the game
-	if (ATantrumnGameModeBase* GameMode = GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>())
+	PlayerHUD = Cast<ATantrumnHUD>(GetHUD());
+	if (const ATantrumnGameModeBase* GameModeBase = Cast<ATantrumnGameModeBase>(GetWorld()->GetAuthGameMode()))
 	{
-		HUDClass = GameMode->GetWidgetClass();
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Player Controller Unable to get Gamemode in Order to set UI"))
-		// TODO Setup default widgetclass
+		if(GameModeBase->IsInStartMenu())
+		{
+			PlayerHUD->ToggleStartMenu(true);
+			const FInputModeUIOnly InputMode;
+			SetInputMode(InputMode);
+			SetShowMouseCursor(true);
+		} else
+		{
+			PlayerHUD->ToggleStartMenu(false);
+		}
 	}
 	
-
 	// Setup Enhanced Input
 	if (InputComponent)
 	{
 		// Prep Enhanced Input subsystem for mappings
-		if (ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
-		{
-			if (UEnhancedInputLocalPlayerSubsystem* InputSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
-			{
-				if (!InputMapping.IsNull())
-				{
-					InputSystem->ClearAllMappings();
-					InputSystem->AddMappingContext(InputMapping.LoadSynchronous(), 0);
-				}
-			}
-		}
+		SetInputContext(GameInputMapping);
 
 		// Get Input Component as Enhanced Input Component
 		if (UEnhancedInputComponent* EIPlayerComponent = Cast<UEnhancedInputComponent>(InputComponent))
@@ -119,6 +112,18 @@ void ATantrumnPlayerController::BeginPlay()
 				ETriggerEvent::Completed,
 				this,
 				&ATantrumnPlayerController::RequestStopHoldObject);
+
+			// Character Menu Display
+			EIPlayerComponent->BindAction(InputActions->InputOpenMenu,
+				ETriggerEvent::Completed,
+				this,
+				&ATantrumnPlayerController::RequestDisplayLevelMenu);
+
+			// Character Menu Display Remove
+			EIPlayerComponent->BindAction(InputActions->InputCloseMenu,
+				ETriggerEvent::Completed,
+				this,
+				&ATantrumnPlayerController::RequestRemoveLevelMenu);
 		}
 	}
 }
@@ -135,25 +140,13 @@ void ATantrumnPlayerController::OnUnPossess()
 	UE_LOG(LogTemp, Warning, TEXT("OnUnPossess: %s"), *GetName());
 }
 
-void ATantrumnPlayerController::ClientDisplayCountDown_Implementation(float GameCountDownDuration, TSubclassOf<UTantrumnGameWidget> InGameWidgetClass)
-{
-	if(!TantrumnGameWidget)
-	{
-		TantrumnGameWidget = CreateWidget<UTantrumnGameWidget>(this, InGameWidgetClass);
-	}
-	if (TantrumnGameWidget)
-	{
-		TantrumnGameWidget->AddToPlayerScreen();
-		TantrumnGameWidget->StartCountDown(GameCountDownDuration, this);
-	}
-}
-
 void ATantrumnPlayerController::ClientRestartGame_Implementation()
 {
-	if (TantrumnGameWidget)
+	if (PlayerHUD)
 	{
-		TantrumnGameWidget->RemoveResults();
-		FInputModeGameOnly InputMode;
+		PlayerHUD->RemoveResults();
+		SetInputContext(GameInputMapping);
+		const FInputModeGameOnly InputMode;
 		SetInputMode(InputMode);
 		SetShowMouseCursor(false);
 	}
@@ -163,19 +156,19 @@ void ATantrumnPlayerController::ClientReachedEnd_Implementation()
 {
 	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
+		// TODO Start here
 		TantrumnCharacterBase->ServerPlayCelebrateMontage();
 		TantrumnCharacterBase->GetCharacterMovement()->DisableMovement();
 
-		TantrumnGameWidget->RemoveResults();
-		FInputModeUIOnly InputMode;
+		PlayerHUD->RemoveResults();
+		RequestRemoveLevelMenu();
+		SetInputContext(MenuInputMapping);
+		const FInputModeUIOnly InputMode;
 		SetInputMode(InputMode);
 		SetShowMouseCursor(true);
 	}
-
-	if (UTantrumnGameInstance* TantrumnGameInstance = GetWorld()->GetGameInstance<UTantrumnGameInstance>())
-	{
-		TantrumnGameWidget->DisplayResults();
-	}
+	
+	PlayerHUD->DisplayResults();
 }
 
 void ATantrumnPlayerController::OnRetrySelected()
@@ -183,6 +176,45 @@ void ATantrumnPlayerController::OnRetrySelected()
 	ServerRestartLevel();
 }
 
+void ATantrumnPlayerController::RequestDisplayLevelMenu()
+{
+	if (CanProcessRequest())
+	{
+		SetInputContext(MenuInputMapping);
+		PlayerHUD->ToggleLevelMenuDisplay(true);
+		const FInputModeGameAndUI InputMode;
+		SetInputMode(InputMode);
+		SetShowMouseCursor(true);
+	}
+}
+
+void ATantrumnPlayerController::RequestRemoveLevelMenu()
+{
+	if (CanProcessRequest())
+	{
+		SetInputContext(GameInputMapping);
+		PlayerHUD->ToggleLevelMenuDisplay(false);
+		const FInputModeGameOnly InputMode;
+		SetInputMode(InputMode);
+		SetShowMouseCursor(false);
+	}
+}
+
+void ATantrumnPlayerController::SetInputContext(TSoftObjectPtr<UInputMappingContext> InMappingContext)
+{
+	if(const ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
+	{
+		UEnhancedInputLocalPlayerSubsystem* InputSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
+		if(const UInputMappingContext* InMappingContextLoaded = InMappingContext.LoadSynchronous())
+		{
+			if (!InputSystem->HasMappingContext(InMappingContextLoaded))
+			{
+				InputSystem->ClearAllMappings();
+				InputSystem->AddMappingContext(InMappingContextLoaded, 0, FModifyContextOptions());
+			}
+		}
+	}
+}
 
 void ATantrumnPlayerController::ServerRestartLevel_Implementation()
 {
@@ -190,23 +222,6 @@ void ATantrumnPlayerController::ServerRestartLevel_Implementation()
 	if (ensureMsgf(TantrumnGameMode, TEXT("ATantrumnPlayerController::ServerRestartLevel_Implementation Invalid Game Mode")))
 	{
 		TantrumnGameMode->RestartGame();
-	}
-}
-
-void ATantrumnPlayerController::ReceivedPlayer()
-{
-	Super::ReceivedPlayer();
-
-	if (IsLocalController())
-	{
-		if (HUDClass)
-		{
-			HUDWidget = CreateWidget(this, HUDClass);
-			if (HUDWidget)
-			{
-				HUDWidget->AddToPlayerScreen();
-			}
-		}
 	}
 }
 
@@ -326,22 +341,13 @@ void ATantrumnPlayerController::RequestStopSprint()
 
 bool ATantrumnPlayerController::CanProcessRequest() const
 {
-	if (UTantrumnGameInstance* TantrumnGameInstance = GetWorld()->GetGameInstance<UTantrumnGameInstance>())
+	if (TantrumnGameState && TantrumnGameState->IsPlaying())
 	{
-		// if (TantrumnGameInstance->IsPlayableGame == false)
-		// {
-		// 	// Not playing a game, used for testing and debug gameplay
-		// 	return true;
-		// }
-		if (TantrumnGameState && TantrumnGameState->IsPlaying())
+		if (const ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
 		{
-			if (ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
-			{
-				return (TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Playing);
-			}
+			return (TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Playing);
 		}
 	}
-
 	return false;
 }
 
@@ -354,7 +360,7 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 		if (TantrumnCharacter->CanThrowObject())
 		{
 			// the delta and axis values influence throw behaviour
-			float CurrentDelta = AxisValue - LastAxis;
+			const float CurrentDelta = AxisValue - LastAxis;
 
 			// Debug toggle to character display throwing velocity
 			if (CVarDisplayLaunchInputDelta->GetBool())
@@ -367,8 +373,8 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 			LastAxis = AxisValue;
 
 			// Flick action triggers the player to throw
-			const bool IsFlick = fabs(CurrentDelta) > FlickThreshold;
-			if (IsFlick)
+			//const bool IsFlick = fabs(CurrentDelta) > FlickThreshold;
+			if (fabs(CurrentDelta) > FlickThreshold)
 			{
 				// Depending on mousewheel forward or back; throw or apply effect on ourselves
 				if (AxisValue > 0)
@@ -420,11 +426,11 @@ void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason
 	if (InputComponent)
 	{
 		// Tear down Enhanced Input subsystem for mappings
-		if (ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
+		if (const ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
 		{
 			if (UEnhancedInputLocalPlayerSubsystem* InputSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 			{
-				if (!InputMapping.IsNull())
+				if (!GameInputMapping.IsNull())
 				{
 					InputSystem->ClearAllMappings();
 				}

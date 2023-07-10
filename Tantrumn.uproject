@@ -11,7 +11,8 @@
 			"AdditionalDependencies": [
 				"Engine",
 				"UMG",
-				"AIModule"
+				"AIModule",
+				"NavigationSystem"
 			]
 		}
 	],
@@ -35,5 +36,8 @@
 			"Name": "GameplayAbilities",
 			"Enabled": true
 		}
+	],
+	"TargetPlatforms": [
+		"Windows"
 	]
 }

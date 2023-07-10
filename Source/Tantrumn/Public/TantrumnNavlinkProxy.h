@@ -13,5 +13,5 @@ UCLASS()
 class TANTRUMN_API ATantrumnNavlinkProxy : public ANavLinkProxy
 {
 	GENERATED_BODY()
-	
+
 };

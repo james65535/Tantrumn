@@ -10,7 +10,7 @@
 class ATantrumnPlayerState;
 // ENUM to track the current state of the game
 UENUM(BlueprintType)
-enum class EGameState : uint8
+enum class ETantrumnGameState : uint8
 {
 	None		UMETA(DisplayName = "None"),
 	Waiting		UMETA(DisplayName = "Waiting"),
@@ -44,10 +44,10 @@ class TANTRUMN_API ATantrumnGameStateBase : public AGameStateBase
 public:
 
 	UFUNCTION(BlueprintCallable)
-	void SetGameState(EGameState InGameState) { GameState = InGameState;}
+	void SetGameState(ETantrumnGameState InGameState) { TantrumnGameState = InGameState;}
 
 	UFUNCTION(BlueprintPure)
-	bool IsPlaying() const { return GameState == EGameState::Playing;}
+	bool IsPlaying() const { return TantrumnGameState == ETantrumnGameState::Playing;}
 
 	// This will only be called on a system which has Authority
 	void OnPlayerReachedEnd(ATantrumnCharacterBase* TantrumnCharacter);
@@ -60,10 +60,10 @@ protected:
 	void UpdateResults(ATantrumnPlayerState* PlayerState, ATantrumnCharacterBase* TantrumnCharacter);
 
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_GameState, Category = "States")
-	EGameState GameState = EGameState::None;
+	ETantrumnGameState TantrumnGameState = ETantrumnGameState::None;
 
 	UFUNCTION()
-	void OnRep_GameState(const EGameState& OldGameState);
+	void OnRep_GameState(const ETantrumnGameState& OldGameState);
 
 	UPROPERTY(VisibleAnywhere, Replicated, Category = "States")
 	TArray<FGameResult> Results;
