@@ -6,6 +6,7 @@
 #include "GameFramework/GameUserSettings.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "TantrumnGameWidget.h"
+#include "UIElementsAsset.h"
 #include "Tantrumn/TantrumnPlayerController.h"
 
 void ATantrumnHUD::BeginPlay()
@@ -57,13 +58,32 @@ void ATantrumnHUD::ConfirmGameUserSettings(bool bOverrideCommandLine)
 	}
 }
 
+void ATantrumnHUD::SetGameUIAssets(const TSoftObjectPtr<UUIElementsAsset> InGameUIElementsAssets)
+{
+	checkfSlow(InGameUIElementsAsset, "PlayerHUD: Received Null UI Element Assets Soft Ptr");
+	const UUIElementsAsset* UIElementAssets = InGameUIElementsAssets.LoadSynchronous();
+	checkfSlow(UIElementAssets, "PlayerHUD: Could not load UI Element Assets");
+
+	// TODO Develop ENUM Iterator
+	/** Map Asset Settings to UI Element Types and Their Corresponding Slots */
+	const FName MenuSlotName = UIElementAssets->GameWidgetClasses.GameMenuWidget.WidgetSlot;
+	UE_LOG(LogTemp, Warning, TEXT("GameMenu: %s"), *MenuSlotName.ToString());
+	LevelMenuWidget = AddSlotUI_Implementation(UIElementAssets->GameWidgetClasses.GameMenuWidget.WidgetClass, MenuSlotName);
+	
+	const FName PlaySlotName = UIElementAssets->GameWidgetClasses.GamePlayWidget.WidgetSlot;
+	UE_LOG(LogTemp, Warning, TEXT("PlayUI: %s"), *PlaySlotName.ToString());
+	GameLevelWidget = AddSlotUI_Implementation(UIElementAssets->GameWidgetClasses.GamePlayWidget.WidgetClass, PlaySlotName);
+	
+	const FName EndSlotName = UIElementAssets->GameWidgetClasses.GameEndScreenWidget.WidgetSlot;
+	UE_LOG(LogTemp, Warning, TEXT("EndUI: %s"), *EndSlotName.ToString());
+	LevelEndWidget = AddSlotUI_Implementation(UIElementAssets->GameWidgetClasses.GameEndScreenWidget.WidgetClass, EndSlotName);
+
+	DisplayUI();
+}
+
 void ATantrumnHUD::ToggleLevelMenuDisplay(const bool bIsDisplayed)
 {
-	if (!LevelMenuWidget)
-	{
-		LevelMenuWidget = AddSlotUI_Implementation(LevelMenuWidgetClass, MenuUINamedSlotName);
-	}
-	
+	checkfSlow(LevelMenuWidget, "PLayerHUD attempted to toggle Level Menu but it was null")
 	bIsDisplayed ?
 		LevelMenuWidget->SetVisibility(ESlateVisibility::Visible) :
 		LevelMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
@@ -71,90 +91,54 @@ void ATantrumnHUD::ToggleLevelMenuDisplay(const bool bIsDisplayed)
 
 UTantrumnGameWidget* ATantrumnHUD::AddSlotUI_Implementation(TSubclassOf<UTantrumnGameWidget> InWidgetClass, FName InSlotName)
 {
+	check(InWidgetClass);
 	if (BaseUIWidget == nullptr)
 	{
 		/** Base UI is the parent for all Widgets */
 		BaseUIWidget = AddWidget(BaseUIWidgetClass);
+		check(BaseUIWidget);
 	}
-	if(InWidgetClass != nullptr && BaseUIWidget != nullptr)
+
+	if (UTantrumnGameWidget* OutWidgetRef = CreateWidget<UTantrumnGameWidget>(GetOwningPlayerController(), InWidgetClass))
 	{
-		UTantrumnGameWidget* OutWidgetRef = CreateWidget<UTantrumnGameWidget>(GetOwningPlayerController(), InWidgetClass);
-		if (OutWidgetRef != nullptr && BaseUIWidget != nullptr)
+		BaseUIWidget->SetContentForSlot(InSlotName, OutWidgetRef);
+		if(BaseUIWidget->GetContentForSlot(InSlotName) != nullptr)
 		{
-			BaseUIWidget->SetContentForSlot(InSlotName, OutWidgetRef);
-			if(BaseUIWidget->GetContentForSlot(InSlotName) != nullptr)
-			{
-				return OutWidgetRef;
-			}
+			return OutWidgetRef;
 		}
 	}
 	return nullptr;
-}
-
-void ATantrumnHUD::SetLevelWidgetClass(TSubclassOf<UTantrumnGameWidget> InLevelWidgetClass)
-{
-	GameLevelWidget = AddSlotUI_Implementation(InLevelWidgetClass, LevelUINamedSlotName);
-}
-
-void ATantrumnHUD::ToggleStartMenu_Implementation(bool bShouldDisplay)
-{
-	if (!GameStartScreenWidget)
-	{
-		GameStartScreenWidget = AddSlotUI_Implementation(GameStartScreenWidgetClass, StartMenuUINamedSlotName);
-	}
-
-	bShouldDisplay ?
-		GameStartScreenWidget->SetVisibility(ESlateVisibility::Visible) :
-		GameStartScreenWidget->SetVisibility(ESlateVisibility::Collapsed);
-}
-
-void ATantrumnHUD::DisplayResults_Implementation()
-{
-	LevelMenuWidget ?
-		LevelMenuWidget->SetVisibility(ESlateVisibility::Visible) :
-		LevelEndWidget = AddSlotUI_Implementation(LevelEndWidgetClass, LevelEndWidgetNamedSlotName);
-	
-	GameLevelWidget->DisplayResults();
-}
-
-void ATantrumnHUD::RemoveResults_Implementation()
-{
-	if (GameLevelWidget)
-	{
-		GameLevelWidget->RemoveResults();
-	}
-
-	if (LevelEndWidget)
-	{
-		LevelEndWidget->SetVisibility(ESlateVisibility::Collapsed);
-	}
 }
 
 UTantrumnGameWidget* ATantrumnHUD::AddWidget(const TSubclassOf<UTantrumnGameWidget> InWidgetClass) const
 {
-	if(InWidgetClass != nullptr)
+	check(InWidgetClass);
+	if(UTantrumnGameWidget* ReturnWidget = CreateWidget<UTantrumnGameWidget>(GetOwningPlayerController(), InWidgetClass))
 	{
-		if(UTantrumnGameWidget* ReturnWidget = CreateWidget<UTantrumnGameWidget>(GetOwningPlayerController(), InWidgetClass))
-		{
-			ReturnWidget->AddToPlayerScreen();
-			return ReturnWidget;
-		}
+		ReturnWidget->AddToPlayerScreen();
+		return ReturnWidget;
 	}
 	return nullptr;
 }
 
-void ATantrumnHUD::DisplayGameTimer_Implementation(float GameTimeDuration)
+void ATantrumnHUD::DisplayResults(const TArray<FGameResult>& InResults) const
 {
-	if (GameLevelWidget)
+	checkfSlow(LevelMenuWidget, "Player HUD - Level Menu Widget was not set prior to call for display")
+	LevelEndWidget->DisplayResults(InResults);
+}
+
+void ATantrumnHUD::RemoveResults()
+{
+	if (LevelEndWidget){ LevelEndWidget->RemoveResults();	}
+	
+}
+
+void ATantrumnHUD::DisplayGameTimer(float GameTimeDuration)
+{
+	check(GameLevelWidget)
+	if (ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(GetOwningPlayerController()))
 	{
-		if (ATantrumnPlayerController* PlayerController =
-			Cast<ATantrumnPlayerController>(GetOwningPlayerController()))
-		{
-			GameLevelWidget->InitiateGameTimer(GameTimeDuration, PlayerController);
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Could not start countdown as gamelevelwidget is null"));
+		GameLevelWidget->InitiateGameTimer(GameTimeDuration, PlayerController);
+
 	}
 }

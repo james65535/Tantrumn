@@ -5,7 +5,6 @@
 
 #include "TantrumnAIController.h"
 #include "TantrumnGameStateBase.h"
-#include "TantrumnHUD.h"
 #include "TantrumnPlayerController.h"
 #include "TantrumnPlayerState.h"
 #include "GameFramework/Character.h"
@@ -25,25 +24,18 @@ void ATantrumnGameModeBase::BeginPlay()
 	 * Otherwise we let the HUD of each player controller know the class of Widget to Display
 	 * for this Game Mode
 	 */
-	if (ATantrumnGameStateBase* TantrumnGameState= GetGameState<ATantrumnGameStateBase>())
+	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
 	{
+		TantrumnGameState->SetGameType(DesiredGameType);
+
+		// TODO replace with desiredgametype
 		if(bToggleInitialMainMenu)
 		{
 			TantrumnGameState->SetGameState(ETantrumnGameState::None);
-		} else
+		}
+		else
 		{
 			TantrumnGameState->SetGameState(ETantrumnGameState::Waiting);
-			for (FConstPlayerControllerIterator Iterator =
-				GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-			{
-				if(ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(Iterator->Get()))
-				{
-					if(ATantrumnHUD* PlayerHUD = Cast<ATantrumnHUD>(PlayerController->GetHUD()))
-					{
-						PlayerHUD->SetLevelWidgetClass(GameWidgetClass);
-					}
-				}
-			}
 		}
 	}
 }
@@ -52,11 +44,13 @@ void ATantrumnGameModeBase::AttemptStartGame()
 {
 	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
 	{
+		TantrumnGameState->SetGameType(DesiredGameType);
 		TantrumnGameState->SetGameState(ETantrumnGameState::Waiting);
 	}
-	
-	if (GetNumPlayers() == NumExpectedPlayers)
+
+	if (AllPlayersReady())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("GameMode: %s - All Players Ready"), *GetName());
 		// This needs to be replicated, call a function on game instance and replicate
 		if (GameCountDownDuration > SMALL_NUMBER)
 		{
@@ -70,82 +64,118 @@ void ATantrumnGameModeBase::AttemptStartGame()
 		{
 			StartGame();
 		}
+	} else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GameMode: %s - Not all players ready"), *GetName());
+		GetWorld()->GetTimerManager().SetTimer(
+			RetryStartTimerHandle,
+			this, &ATantrumnGameModeBase::AttemptStartGame,
+			RetryAttemptStartWaitDuration,
+			false);
 	}
 }
 
+// TODO review multiplayer impact
 void ATantrumnGameModeBase::DisplayCountDown()
 {
+	/**
+	 * Perform Spectator Check prior to calling Game Countdown to minimise calls between
+	 * When Timer is started on server and when it is started on client
+	 */
+	TArray<ATantrumnPlayerController*> NonSpectatingPlayers;
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		if(ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(Iterator->Get()))
 		{
 			if(!MustSpectate(PlayerController))
 			{
-				if(ATantrumnHUD* PlayerHUD = Cast<ATantrumnHUD>(PlayerController->GetHUD()))
-				{
-					PlayerHUD->DisplayGameTimer(GameCountDownDuration);
-					GetWorld()->GetTimerManager().SetTimer(
-						CountdownTimerHandle,
-						this, &ATantrumnGameModeBase::StartGame,
-						GameCountDownDuration,
-						false);
-				} 
+				NonSpectatingPlayers.Emplace(PlayerController);
 			}
 		}
+	}
+	
+	GetWorld()->GetTimerManager().SetTimer(
+		CountdownTimerHandle,
+		this, &ATantrumnGameModeBase::StartGame,
+		GameCountDownDuration,
+		false);
+
+	for (ATantrumnPlayerController* NonSpectatingPlayer : NonSpectatingPlayers)
+	{
+		NonSpectatingPlayer->C_StartGameCountDown(GameCountDownDuration);
 	}
 }
 
 void ATantrumnGameModeBase::StartGame()
 {
+	if (!HasAuthority())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("This System does not have authority to start game"));
+		return;
+	}
 	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Gamemode entering playing state"));
 		TantrumnGameState->SetGameState(ETantrumnGameState::Playing);
 		TantrumnGameState->ClearResults();
 	}
-	
+
+	/** Restore control to Players and reset Player State for Players and AI */
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController && PlayerController->PlayerState && !MustSpectate(PlayerController))
+		ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(Iterator->Get());
+		check(PlayerController);
+		if (!MustSpectate(PlayerController))
 		{
-			FInputModeGameOnly InputMode;
-			PlayerController->SetInputMode(InputMode);
-			PlayerController->SetShowMouseCursor(false);
-
-			if (ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>())
-			{
-				PlayerState->SetCurrentState(EPlayerGameState::Playing);
-				PlayerState->SetIsWinner(false);
-			}
+			PlayerController->C_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
+			ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>();
+			check(PlayerState);
+			PlayerState->SetCurrentState(EPlayerGameState::Playing);
+			PlayerState->SetIsWinner(false);
 		}
 	}
+	
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
-		if (ATantrumnAIController* TantrumnAIController = Cast<ATantrumnAIController>(Iterator->Get()))
+		if(const ATantrumnAIController* TantrumnAIController = Cast<ATantrumnAIController>(Iterator->Get()))
 		{
-			if (ATantrumnPlayerState* PlayerState = TantrumnAIController->GetPlayerState<ATantrumnPlayerState>())
+			ATantrumnPlayerState* AIPlayerState = TantrumnAIController->GetPlayerState<ATantrumnPlayerState>();
+			check(AIPlayerState)
+			AIPlayerState->SetCurrentState(EPlayerGameState::Playing);
+			AIPlayerState->SetIsWinner(false);
+		}
+	}
+}
+
+bool ATantrumnGameModeBase::AllPlayersReady() const
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		if(const ATantrumnPlayerState* PlayerState =
+			Cast<APlayerController>(Iterator->Get())->GetPlayerState<ATantrumnPlayerState>())
+		{
+			if (PlayerState->GetCurrentState() != EPlayerGameState::Ready)
 			{
-				PlayerState->SetCurrentState(EPlayerGameState::Playing);
-				PlayerState->SetIsWinner(false);
+				UE_LOG(LogTemp, Warning, TEXT("PlayerID: %i is not ready"), PlayerState->GetPlayerId())
+				return false;
 			}
 		}
 	}
+	return true;
 }
 
 void ATantrumnGameModeBase::RestartPlayer(AController* NewPlayer)
 {
 	Super::RestartPlayer(NewPlayer);
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(NewPlayer))
+	if (const APlayerController* PlayerController = Cast<APlayerController>(NewPlayer))
 	{
-		if (PlayerController->GetCharacter() && PlayerController->GetCharacter()->GetCharacterMovement())
+		check(PlayerController->GetCharacter() && PlayerController->GetCharacter()->GetCharacterMovement());
+		PlayerController->GetCharacter()->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+
+		if(ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>())
 		{
-			PlayerController->GetCharacter()->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-			ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>();
-			if (PlayerState)
-			{
-				PlayerState->SetCurrentState(EPlayerGameState::Waiting);
-			}
+			PlayerState->SetCurrentState(EPlayerGameState::Waiting);
 		}
 	}
 
@@ -158,33 +188,28 @@ void ATantrumnGameModeBase::RestartGame()
 	// Destroy existing AI and let level reset create a fresh one on game restart
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
-		ATantrumnAIController* TantrumnAIController = Cast<ATantrumnAIController>(Iterator->Get());
-		if (TantrumnAIController && TantrumnAIController->GetPawn())
+		if (ATantrumnAIController* TantrumnAIController = Cast<ATantrumnAIController>(Iterator->Get()))
 		{
-			TantrumnAIController->Destroy(true);
+			if (TantrumnAIController->GetPawn())
+			{
+				TantrumnAIController->Destroy(true);
+			}
 		}
 	}
 	
 	ResetLevel();
-
+	// TODO should we check if all players ready here?
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController && PlayerController->PlayerState)
+		if (PlayerController && PlayerController->PlayerState && !MustSpectate(PlayerController))
 		{
-			if (!MustSpectate(PlayerController))
+			if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(PlayerController))
 			{
-				if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(PlayerController))
-				{
-					TantrumnPlayerController->ClientRestartGame();
-				}
-				RestartPlayer(PlayerController);
-				// InitializeHUDForPlayer(PlayerController);  // TODO Check for way to reset hud
+				TantrumnPlayerController->C_ResetPlayer();
 			}
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("GameMode loadout triggered"));
-			}
+
+			RestartPlayer(PlayerController);
 		}
 	}
 }

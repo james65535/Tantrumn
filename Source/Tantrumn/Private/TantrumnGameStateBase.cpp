@@ -14,15 +14,36 @@ void ATantrumnGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 
 	FDoRepLifetimeParams SharedParams;
 	SharedParams.bIsPushBased = true;
+	FDoRepLifetimeParams RepNotifyParams;
+	RepNotifyParams.bIsPushBased = true;
+	RepNotifyParams.RepNotifyCondition = REPNOTIFY_OnChanged;
+	RepNotifyParams.Condition = COND_SkipOwner;
 
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnGameStateBase, TantrumnGameState, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnGameStateBase, Results, SharedParams);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnGameStateBase, TantrumnGameType, RepNotifyParams);
 }
 
-void ATantrumnGameStateBase::OnRep_GameState(const ETantrumnGameState& OldGameState)
+void ATantrumnGameStateBase::OnRep_GameState()
 {
-	UE_LOG(LogTemp, Warning, TEXT("OldGameState: %s"), *UEnum::GetDisplayValueAsText(OldGameState).ToString());
+	UE_LOG(LogTemp, Warning, TEXT("OldGameState: %s"), *UEnum::GetDisplayValueAsText(OldTantrumnGameState).ToString());
 	UE_LOG(LogTemp, Warning, TEXT("TantrumnGameState: %s"), *UEnum::GetDisplayValueAsText(TantrumnGameState).ToString());
+}
+
+void ATantrumnGameStateBase::OnRep_GameType()
+{
+	OnGameTypeUpdateDelegate.Broadcast(TantrumnGameType);
+}
+
+void ATantrumnGameStateBase::SetGameState(const ETantrumnGameState InGameState)
+{
+	OldTantrumnGameState = TantrumnGameState;
+	TantrumnGameState = InGameState;
+}
+
+void ATantrumnGameStateBase::SetGameType(const ETantrumnGameType InGameType)
+{
+	TantrumnGameType = InGameType;
 }
 
 void ATantrumnGameStateBase::OnPlayerReachedEnd(ATantrumnCharacterBase* TantrumnCharacter)
@@ -31,17 +52,13 @@ void ATantrumnGameStateBase::OnPlayerReachedEnd(ATantrumnCharacterBase* Tantrumn
 
 	if (ATantrumnPlayerController* TantrumnPlayerController = TantrumnCharacter->GetController<ATantrumnPlayerController>())
 	{
-		TantrumnPlayerController->ClientReachedEnd();
+		TantrumnPlayerController->C_FinishedRound();
 		TantrumnCharacter->GetCharacterMovement()->DisableMovement();
 		
 		if (ATantrumnPlayerState* PlayerState = TantrumnPlayerController->GetPlayerState<ATantrumnPlayerState>())
 		{
 			UpdateResults(PlayerState, TantrumnCharacter);
-
-			if (Results.Num() >= PlayerArray.Num())
-			{
-				TantrumnGameState = ETantrumnGameState::GameOver;
-			}
+			UE_LOG(LogTemp, Warning, TEXT("Play state has %i results and %i players"), Results.Num(), PlayerArray.Num());
 		}
 	}
 	else if (ATantrumnAIController* TantrumnAIController = TantrumnCharacter->GetController<ATantrumnAIController>())
@@ -51,6 +68,22 @@ void ATantrumnGameStateBase::OnPlayerReachedEnd(ATantrumnCharacterBase* Tantrumn
 			UpdateResults(PlayerState, TantrumnCharacter);
 			TantrumnAIController->OnReachedEnd();
 		}	
+	}
+	
+	/** All Players Should Be Finished */
+	if (Results.Num() >= PlayerArray.Num()-1)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Game State Found All Players Finished"));
+		TantrumnGameState = ETantrumnGameState::GameOver;
+		for (const TObjectPtr<APlayerState> PlayerState : PlayerArray)
+		{
+			if(ATantrumnPlayerController* PlayerController =
+				Cast<ATantrumnPlayerController>(PlayerState->GetPlayerController()))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Game State requesting results"));
+				PlayerController->C_RequestFinalResults();
+			}
+		}
 	}
 }
 

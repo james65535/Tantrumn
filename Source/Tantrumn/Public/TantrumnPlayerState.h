@@ -12,6 +12,7 @@ enum class EPlayerGameState : uint8
 {
 	None		UMETA(DisplayName = "None"),
 	Waiting		UMETA(DisplayName = "Waiting"),
+	Ready		UMETA(DisplayName = "Ready"),
 	Playing		UMETA(DisplayName = "Playing"),
 	Finished	UMETA(DisplayName = "Finished"),
 };
@@ -25,21 +26,23 @@ public:
 	UFUNCTION(BlueprintPure)
 	EPlayerGameState GetCurrentState() const { return CurrentState; }
 
-	void SetCurrentState(EPlayerGameState PlayerGameState) { CurrentState = PlayerGameState; }
+	UFUNCTION()
+	void SetCurrentState(const EPlayerGameState PlayerGameState);
+	
 
 	UFUNCTION(BlueprintPure)
 	bool IsWinner() const { return bIsWinner; }
 
-	void SetIsWinner(bool IsWinner) { bIsWinner = IsWinner; }
+	void SetIsWinner(const bool IsWinner) { bIsWinner = IsWinner; }
 
-protected:
+private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentState)
 	EPlayerGameState CurrentState = EPlayerGameState::None;
+	UFUNCTION()
+	virtual void OnRep_CurrentState();
 
 	UPROPERTY(Replicated)
 	bool bIsWinner = false;
-
-	UFUNCTION()
-	virtual void OnRep_CurrentState(const EPlayerGameState& OldGameState){}
+	
 };

@@ -8,13 +8,10 @@
 void ATantrumnAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(InPawn))
-	{
 		if (ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
 		{
 			TantrumnPlayerState->SetCurrentState(EPlayerGameState::Waiting);
 		}
-	}
 }
 
 void ATantrumnAIController::OnUnPossess()
@@ -28,11 +25,4 @@ void ATantrumnAIController::OnReachedEnd()
 	{
 		TantrumnCharacter->ServerPlayCelebrateMontage();
 	}
-	
 }
-
-
-
-
-
-

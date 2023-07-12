@@ -3,15 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UIElementsAsset.h"
 #include "GameFramework/HUD.h"
+#include "TantrumnGameStateBase.h"
 #include "TantrumnHUD.generated.h"
 
 class UTantrumnGameWidget;
-class UUserWidget;
 
 /**
  * 
  */
+
 UCLASS()
 class TANTRUMN_API ATantrumnHUD : public AHUD
 {
@@ -43,30 +45,33 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
 	void ConfirmGameUserSettings(bool bOverrideCommandLine);
 	
-	
+	/**
+	 * UI Assets specify what elements are rendered in the Player's UI
+	 * @param InGameUIElementsAssets The Data Asset Container Game UI Elements
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
+	void SetGameUIAssets(const TSoftObjectPtr<UUIElementsAsset> InGameUIElementsAssets);
 
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void DisplayUI() const {  BaseUIWidget->DisplayGameModeUI(); };
 	
 	// TODO Determine if reliable can be removed
-	UFUNCTION(Client, Reliable, Category = "Tantrumn")
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void DisplayGameTimer(float GameTimeDownDuration);
 
-	UFUNCTION(Client, Reliable, Category = "Tantrumn")
-	void DisplayResults();
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void DisplayResults(const TArray<FGameResult>& InResults) const;
 
-	UFUNCTION(Client, Reliable, Category = "Tantrumn")
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void RemoveResults();
-
-	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
-	void SetLevelWidgetClass(TSubclassOf<UTantrumnGameWidget> InLevelWidgetClass);
 	
-	UFUNCTION(Client, Reliable, Category = "Tantrumn")
-	void ToggleStartMenu(bool bShouldDisplay);
 	/** Display the Game Menu HUD within a Level */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
 	void ToggleLevelMenuDisplay(const bool bIsDisplayed);
 
 private:
 	
+	/** Funcs to Specify UI Elements */
 	/** Level Specific UI */
 	UPROPERTY(VisibleInstanceOnly, Category = "Tantrumn UI")
 	UTantrumnGameWidget* GameLevelWidget;
@@ -77,10 +82,10 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn UI")
 	FName LevelUINamedSlotName = "NS_LevelUI";
 
-	/** Level Specific UI */
+	/** Level End Menu UI */
 	UPROPERTY(VisibleInstanceOnly, Category = "Tantrumn UI")
 	UTantrumnGameWidget* LevelEndWidget;
-	/** Class - Level Specific UI Class */
+	/** Class - Level End Menu UI Class */
 	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn UI")
 	TSubclassOf<UTantrumnGameWidget> LevelEndWidgetClass;
 	/** Named Slot Widgets to Add Specific UI Content */
@@ -113,6 +118,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn UI")
 	TSubclassOf<UTantrumnGameWidget> BaseUIWidgetClass;
 
+	/** Funcs to handle Widget Creation */
 	/** Add Game Mode UI to Game Base UI */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
 	UTantrumnGameWidget* AddSlotUI_Implementation(TSubclassOf<UTantrumnGameWidget> InWidgetClass, FName InSlotName);

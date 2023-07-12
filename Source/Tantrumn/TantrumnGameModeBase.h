@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TantrumnGameWidget.h"
+#include "TantrumnGameStateBase.h"
 #include "GameFramework/GameModeBase.h"
 #include "TantrumnGameModeBase.generated.h"
 
@@ -11,7 +11,7 @@ class ATantrumnPlayerController;
 class UTantrumnGameWidget;
 
 /*
- *  Note Gamemode is not replicated
+ *  Note Game Mode is not replicated
  */
 
 UCLASS()
@@ -21,19 +21,10 @@ class TANTRUMN_API ATantrumnGameModeBase : public AGameModeBase
 
 public:
 	
-	
 	// --- Overrides --- //
 	ATantrumnGameModeBase();
 	virtual void BeginPlay() override;
 	virtual void RestartPlayer(AController* NewPlayer) override;
-
-	/** Primary Widget Class to be displayed for this game mode */
-	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	TSubclassOf<UTantrumnGameWidget> GetWidgetClass() const { return GameWidgetClass; }
-
-	/** Primary Widget Class to be displayed for this game mode */
-	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	TSubclassOf<UTantrumnGameWidget> GetGameMenuWidgetClass() const { return GameMenuWidgetClass; }
 
 	/** Check if Game is In Start Menu */
 	UFUNCTION(BlueprintPure, Category = "Tantrumn")
@@ -43,40 +34,36 @@ public:
 
 private:
 
-	// --- VARS --- //
-
-	/** Is this gamemode used for the initial main menu screen */
+	// TODO this can be dropped in favour of DesiredGameType
+	/** Is this game mode used for the initial main menu screen */
 	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn")
 	bool bToggleInitialMainMenu = true;
+
+	/** Determine what type of game this mode should communicate to game state and downstream clients */
+	UPROPERTY(EditDefaultsOnly, NoClear, Category = "Tantrumn")
+	ETantrumnGameType DesiredGameType = ETantrumnGameType::None;
 	
 	/** Countdown before the gameplay state begins.  Exposed for BPs to change in editor */
 	UPROPERTY(EditAnywhere, Category = "Tantrumn")
-	float GameCountDownDuration = 3.0f;
-
-	/** Widget to display for this Game Mode */
-	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn")
-	TSubclassOf<UTantrumnGameWidget> GameWidgetClass;
-
-	/** Widget to display for Game Menu */
-	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn")
-	TSubclassOf<UTantrumnGameWidget> GameMenuWidgetClass;
-
-	/** Allows gamemode to determine if a single or multiplayer game is intended */
-	UPROPERTY(EditAnywhere, Category = "Tantrumn")
-	uint8 NumExpectedPlayers = 1u;
-
+	int32 GameCountDownDuration = 1;
 	float DelayStartDuration = 0.5f;
 	FTimerHandle DelayStartTimerHandle;
 	FTimerHandle CountdownTimerHandle;
+
+	/** Game Mode will poll for all players ready and if not then try again in a specified time */
+	float RetryAttemptStartWaitDuration = 2.0f;
+	FTimerHandle RetryStartTimerHandle;
 	
-	// --- FUNCTIONS --- //
-	
+	/** Allows Game Mode to determine if a single or multiplayer game is intended */
+	UPROPERTY(EditAnywhere, Category = "Tantrumn")
+	int32 NumExpectedPlayers = 1;
 	/** Setter to specify if a single or multiplayer game is intended */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	void SetNumExpectedPlayers(uint8 InNumExpectedPlayers) { NumExpectedPlayers = InNumExpectedPlayers; }
+	void SetNumExpectedPlayers(const int32 InNumExpectedPlayers) { NumExpectedPlayers = InNumExpectedPlayers; }
 	
 	void AttemptStartGame();
 	void DisplayCountDown();
 	void StartGame();
-	
+
+	bool AllPlayersReady() const;
 };

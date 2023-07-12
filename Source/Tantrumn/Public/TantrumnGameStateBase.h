@@ -4,10 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
-#include "Tantrumn/TantrumnCharacterBase.h"
 #include "TantrumnGameStateBase.generated.h"
 
 class ATantrumnPlayerState;
+class UTantrumnGameWidget;
+class ATantrumnCharacterBase;
+
+
 // ENUM to track the current state of the game
 UENUM(BlueprintType)
 enum class ETantrumnGameState : uint8
@@ -19,19 +22,35 @@ enum class ETantrumnGameState : uint8
 	GameOver	UMETA(DisplayName = "GameOver"),
 };
 
-USTRUCT()
+// ENUM to track the current type of game
+UENUM(BlueprintType)
+enum class ETantrumnGameType : uint8
+{
+	None		UMETA(DisplayName = "None"),
+	Start		UMETA(DisplayName = "Start"),
+	Racing		UMETA(DisplayName = "Racing"),
+	DodgeBall		UMETA(DisplayName = "DodgeBall"),
+	Battle		UMETA(DisplayName = "Battle"),
+};
+
+USTRUCT(BlueprintType)
 struct FGameResult
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere)
 	FString Name = "Null";
 
-	UPROPERTY()
-	float Time = 0.0f;;
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere)
+	float Time = 0.0f;
+
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere)
+	bool bIsWinner = false;
 };
 
-class ATantrumnCharacterBase;
+/** Begin Delegates */
+/** Notify listeners such as player controller that game type has changed */
+DECLARE_MULTICAST_DELEGATE_OneParam(FGameTypeUpdateDelegate, ETantrumnGameType);
 
 /*
  * Inherits from Actor so can replicate data
@@ -43,28 +62,61 @@ class TANTRUMN_API ATantrumnGameStateBase : public AGameStateBase
 
 public:
 
-	UFUNCTION(BlueprintCallable)
-	void SetGameState(ETantrumnGameState InGameState) { TantrumnGameState = InGameState;}
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void SetGameState(const ETantrumnGameState InGameState);
 
+	/** Game Type Public Accessors */
+	/** Set the Game Type - Should Correspond with GameMode */
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void SetGameType(const ETantrumnGameType InGameType);
+	/** Get the Game Type - Should Correspond with GameMode */
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	ETantrumnGameType GetGameType() const { return TantrumnGameType;}
+
+	/** Quick Check to Determine if Game State is Playing */
 	UFUNCTION(BlueprintPure)
-	bool IsPlaying() const { return TantrumnGameState == ETantrumnGameState::Playing;}
-
-	// This will only be called on a system which has Authority
-	void OnPlayerReachedEnd(ATantrumnCharacterBase* TantrumnCharacter);
+	bool IsGameInPlay() const { return TantrumnGameState == ETantrumnGameState::Playing;}
 	
+	// TODO This will only be called on a system which has Authority, review this
+	void OnPlayerReachedEnd(ATantrumnCharacterBase* TantrumnCharacter);
+
+	UFUNCTION()
+	const TArray<FGameResult>& GetResults() { return Results; }
 	UFUNCTION()
 	void ClearResults();
 
-protected:
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void SetTimerValue(const float InVal) { CountDownStartTime = InVal;}
+	
+	FGameTypeUpdateDelegate OnGameTypeUpdateDelegate;
 
+private:
+
+	/** Game Results */
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "Tantrumn States")
+	TArray<FGameResult> Results;
+	/** Can be called during and after play */
 	void UpdateResults(ATantrumnPlayerState* PlayerState, ATantrumnCharacterBase* TantrumnCharacter);
 
-	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_GameState, Category = "States")
+	/** The State of the Game */
+	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_GameState, Category = "Tantrumn States")
 	ETantrumnGameState TantrumnGameState = ETantrumnGameState::None;
-
+	UPROPERTY()
+	ETantrumnGameState OldTantrumnGameState = ETantrumnGameState::None;
 	UFUNCTION()
-	void OnRep_GameState(const ETantrumnGameState& OldGameState);
+	void OnRep_GameState();
 
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "States")
-	TArray<FGameResult> Results;
+	/** The type of game being played - is correlated to which gamemode is selected */
+	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_GameType, Category = "Tantrumn States")
+	ETantrumnGameType TantrumnGameType = ETantrumnGameType::None;
+	UFUNCTION()
+	void OnRep_GameType();
+
+	/** Game Time Values */
+	/** Time Amount in Seconds Used for Game Countdowns */
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "Tantrumn States")
+	float CountDownStartTime;
+	/** Time Amount in Seconds Used for Match Play Time  */
+	UPROPERTY(VisibleAnywhere, Replicated, Category = "Tantrumn States")
+	float MatchTimer = 0.0f;
 };

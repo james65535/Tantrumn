@@ -2,7 +2,9 @@
 
 
 #include "TantrumnPlayerController.h"
+
 #include "TantrumnCharacterBase.h"
+#include "TantrumnGameElementsRegistry.h"
 #include "TantrumnGameModeBase.h"
 #include "TantrumnGameStateBase.h"
 #include "TantrumnHUD.h"
@@ -20,111 +22,107 @@ static TAutoConsoleVariable<bool> CVarDisplayLaunchInputDelta(
 	TEXT("Display Launch Input Delta"),
 	ECVF_Default);
 
+
+
 void ATantrumnPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+
 	TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>();
 
-	PlayerHUD = Cast<ATantrumnHUD>(GetHUD());
-	if (const ATantrumnGameModeBase* GameModeBase = Cast<ATantrumnGameModeBase>(GetWorld()->GetAuthGameMode()))
+	if (!IsRunningDedicatedServer())
 	{
-		if(GameModeBase->IsInStartMenu())
-		{
-			PlayerHUD->ToggleStartMenu(true);
-			const FInputModeUIOnly InputMode;
-			SetInputMode(InputMode);
-			SetShowMouseCursor(true);
-		} else
-		{
-			PlayerHUD->ToggleStartMenu(false);
-		}
+		/** Specify HUD Representation at start of play */
+		PlayerHUD = Cast<ATantrumnHUD>(GetHUD());
+		/** Game Starts with a UI */
+		C_SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
+		/** If Local game as listener or single player then Grab Gametype, otherwise use delegate to update on replication */
+		UpdateHUDWithGameUIElements(TantrumnGameState->GetGameType());
+		TantrumnGameState->OnGameTypeUpdateDelegate.AddUObject(this, &ATantrumnPlayerController::UpdateHUDWithGameUIElements);
+
+		/* Set Enhanced Input Mapping Context to Game Context */
+		check(InputComponent);
+		SetInputContext(GameInputMapping);
 	}
 	
-	// Setup Enhanced Input
-	if (InputComponent)
+	// Get Input Component as Enhanced Input Component
+	if (UEnhancedInputComponent* EIPlayerComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		// Prep Enhanced Input subsystem for mappings
-		SetInputContext(GameInputMapping);
+		// Enhanced Input Action Bindings
 
-		// Get Input Component as Enhanced Input Component
-		if (UEnhancedInputComponent* EIPlayerComponent = Cast<UEnhancedInputComponent>(InputComponent))
-		{
-			// Enhanced Input Action Bindings
+		// Character locomotion
+		EIPlayerComponent->BindAction(InputActions->InputMove,
+			ETriggerEvent::Triggered,
+			this,
+			&ATantrumnPlayerController::RequestMove);
 
-			// Character locomotion
-			EIPlayerComponent->BindAction(InputActions->InputMove,
-				ETriggerEvent::Triggered,
-				this,
-				&ATantrumnPlayerController::RequestMove);
+		// Character Look
+		EIPlayerComponent->BindAction(InputActions->InputLook,
+			ETriggerEvent::Triggered,
+			this, &
+			ATantrumnPlayerController::RequestLook);
 
-			// Character Look
-			EIPlayerComponent->BindAction(InputActions->InputLook,
-				ETriggerEvent::Triggered,
-				this, &
-				ATantrumnPlayerController::RequestLook);
+		// Character Jump
+		EIPlayerComponent->BindAction(InputActions->InputJump,
+			ETriggerEvent::Triggered,
+			this,
+			&ATantrumnPlayerController::RequestJump);
+		
+		EIPlayerComponent->BindAction(InputActions->InputJump,
+			ETriggerEvent::Completed,
+			this,
+			&ATantrumnPlayerController::RequestStopJump);
 
-			// Character Jump
-			EIPlayerComponent->BindAction(InputActions->InputJump,
-				ETriggerEvent::Triggered,
-				this,
-				&ATantrumnPlayerController::RequestJump);
-			
-			EIPlayerComponent->BindAction(InputActions->InputJump,
-				ETriggerEvent::Completed,
-				this,
-				&ATantrumnPlayerController::RequestStopJump);
+		// Character Crouch
+		EIPlayerComponent->BindAction(InputActions->InputCrouch,
+            ETriggerEvent::Triggered,
+            this,
+            &ATantrumnPlayerController::RequestCrouch);
 
-			// Character Crouch
-			EIPlayerComponent->BindAction(InputActions->InputCrouch,
-                ETriggerEvent::Triggered,
-                this,
-                &ATantrumnPlayerController::RequestCrouch);
+		EIPlayerComponent->BindAction(InputActions->InputCrouch,
+			ETriggerEvent::Completed,
+			this,
+			&ATantrumnPlayerController::RequestStopCrouch);
 
-			EIPlayerComponent->BindAction(InputActions->InputCrouch,
-				ETriggerEvent::Completed,
-				this,
-				&ATantrumnPlayerController::RequestStopCrouch);
+		// Character Sprint
+		EIPlayerComponent->BindAction(InputActions->InputSprint,
+			ETriggerEvent::Triggered,
+			this,
+			&ATantrumnPlayerController::RequestSprint);
 
-			// Character Sprint
-			EIPlayerComponent->BindAction(InputActions->InputSprint,
-				ETriggerEvent::Triggered,
-				this,
-				&ATantrumnPlayerController::RequestSprint);
+		EIPlayerComponent->BindAction(InputActions->InputSprint,
+			ETriggerEvent::Completed,
+			this,
+			&ATantrumnPlayerController::RequestStopSprint);
 
-			EIPlayerComponent->BindAction(InputActions->InputSprint,
-				ETriggerEvent::Completed,
-				this,
-				&ATantrumnPlayerController::RequestStopSprint);
+		// Character Throw
+		EIPlayerComponent->BindAction(InputActions->InputThrowObject,
+			ETriggerEvent::Triggered,
+			this,
+			&ATantrumnPlayerController::RequestThrowObject);
 
-			// Character Throw
-			EIPlayerComponent->BindAction(InputActions->InputThrowObject,
-				ETriggerEvent::Triggered,
-				this,
-				&ATantrumnPlayerController::RequestThrowObject);
+		// Character Pull
+		EIPlayerComponent->BindAction(InputActions->InputPullObject,
+			ETriggerEvent::Triggered,
+			this,
+			&ATantrumnPlayerController::RequestHoldObject);
 
-			// Character Pull
-			EIPlayerComponent->BindAction(InputActions->InputPullObject,
-				ETriggerEvent::Triggered,
-				this,
-				&ATantrumnPlayerController::RequestHoldObject);
+		EIPlayerComponent->BindAction(InputActions->InputPullObject,
+			ETriggerEvent::Completed,
+			this,
+			&ATantrumnPlayerController::RequestStopHoldObject);
 
-			EIPlayerComponent->BindAction(InputActions->InputPullObject,
-				ETriggerEvent::Completed,
-				this,
-				&ATantrumnPlayerController::RequestStopHoldObject);
+		// Character Menu Display
+		EIPlayerComponent->BindAction(InputActions->InputOpenMenu,
+			ETriggerEvent::Completed,
+			this,
+			&ATantrumnPlayerController::RequestDisplayLevelMenu);
 
-			// Character Menu Display
-			EIPlayerComponent->BindAction(InputActions->InputOpenMenu,
-				ETriggerEvent::Completed,
-				this,
-				&ATantrumnPlayerController::RequestDisplayLevelMenu);
-
-			// Character Menu Display Remove
-			EIPlayerComponent->BindAction(InputActions->InputCloseMenu,
-				ETriggerEvent::Completed,
-				this,
-				&ATantrumnPlayerController::RequestRemoveLevelMenu);
-		}
+		// Character Menu Display Remove
+		EIPlayerComponent->BindAction(InputActions->InputCloseMenu,
+			ETriggerEvent::Completed,
+			this,
+			&ATantrumnPlayerController::RequestHideLevelMenu);
 	}
 }
 
@@ -140,40 +138,64 @@ void ATantrumnPlayerController::OnUnPossess()
 	UE_LOG(LogTemp, Warning, TEXT("OnUnPossess: %s"), *GetName());
 }
 
-void ATantrumnPlayerController::ClientRestartGame_Implementation()
+void ATantrumnPlayerController::C_ResetPlayer_Implementation()
 {
-	if (PlayerHUD)
-	{
-		PlayerHUD->RemoveResults();
-		SetInputContext(GameInputMapping);
-		const FInputModeGameOnly InputMode;
-		SetInputMode(InputMode);
-		SetShowMouseCursor(false);
-	}
+	check(PlayerHUD);
+	PlayerHUD->RemoveResults();
+	// TODO this should be menu
+	SetInputContext(GameInputMapping);
+	C_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
 }
 
-void ATantrumnPlayerController::ClientReachedEnd_Implementation()
+void ATantrumnPlayerController::C_FinishedRound_Implementation()
 {
 	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
-		// TODO Start here
 		TantrumnCharacterBase->ServerPlayCelebrateMontage();
 		TantrumnCharacterBase->GetCharacterMovement()->DisableMovement();
-
-		PlayerHUD->RemoveResults();
-		RequestRemoveLevelMenu();
+		RequestHideLevelMenu();
 		SetInputContext(MenuInputMapping);
-		const FInputModeUIOnly InputMode;
-		SetInputMode(InputMode);
-		SetShowMouseCursor(true);
+		C_SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
 	}
-	
-	PlayerHUD->DisplayResults();
+}
+
+void ATantrumnPlayerController::C_RequestFinalResults_Implementation()
+{
+	PlayerHUD->DisplayResults(TantrumnGameState->GetResults());
 }
 
 void ATantrumnPlayerController::OnRetrySelected()
 {
-	ServerRestartLevel();
+	S_RestartLevel();
+}
+
+void ATantrumnPlayerController::OnReadySelected()
+{
+	S_OnReadySelected();
+}
+
+void ATantrumnPlayerController::C_StartGameCountDown_Implementation(const float InCountDownDuration)
+{
+	PlayerHUD->DisplayGameTimer(InCountDownDuration);
+}
+
+void ATantrumnPlayerController::S_OnReadySelected_Implementation()
+{
+	if (GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>())
+	{
+		ATantrumnPlayerState* TantrumnPlayerState = Cast<ATantrumnPlayerState>(PlayerState);
+		TantrumnPlayerState->SetCurrentState(EPlayerGameState::Ready);
+		UE_LOG(LogTemp, Warning, TEXT("Player set self to ready. State: %hhd"), TantrumnPlayerState->GetCurrentState())
+	}
+}
+
+void ATantrumnPlayerController::UpdateHUDWithGameUIElements(ETantrumnGameType InGameType)
+{
+	checkfSlow(GameElementsRegistry, "PlayerController: Verify Controller Blueprint has a UI Elements registry set");
+	if(GameElementsRegistry->GameTypeUIMapping.Contains(InGameType))
+	{
+		PlayerHUD->SetGameUIAssets(*GameElementsRegistry->GameTypeUIMapping.Find(InGameType));
+	}
 }
 
 void ATantrumnPlayerController::RequestDisplayLevelMenu()
@@ -182,22 +204,56 @@ void ATantrumnPlayerController::RequestDisplayLevelMenu()
 	{
 		SetInputContext(MenuInputMapping);
 		PlayerHUD->ToggleLevelMenuDisplay(true);
-		const FInputModeGameAndUI InputMode;
-		SetInputMode(InputMode);
-		SetShowMouseCursor(true);
+		C_SetControllerGameInputMode(ETantrumnInputMode::GameAndUI);
 	}
 }
 
-void ATantrumnPlayerController::RequestRemoveLevelMenu()
+void ATantrumnPlayerController::RequestHideLevelMenu()
 {
 	if (CanProcessRequest())
 	{
 		SetInputContext(GameInputMapping);
 		PlayerHUD->ToggleLevelMenuDisplay(false);
-		const FInputModeGameOnly InputMode;
-		SetInputMode(InputMode);
-		SetShowMouseCursor(false);
+		C_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
 	}
+}
+
+void ATantrumnPlayerController::S_RestartLevel_Implementation()
+{
+	ATantrumnGameModeBase* TantrumnGameMode = GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>();
+	if (ensureMsgf(TantrumnGameMode, TEXT("ATantrumnPlayerController::ServerRestartLevel_Implementation Invalid Game Mode")))
+	{
+		TantrumnGameMode->RestartGame();
+	}
+}
+
+void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	check(InputComponent);
+
+	// Tear down Enhanced Input subsystem for mappings
+	if (const ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* InputSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+		{
+			if (!GameInputMapping.IsNull())
+			{
+				InputSystem->ClearAllMappings();
+			}
+		}
+	}
+}
+
+bool ATantrumnPlayerController::CanProcessRequest() const
+{
+	if (TantrumnGameState && TantrumnGameState->IsGameInPlay())
+	{
+		if (const ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
+		{
+			return (TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Playing);
+		}
+	}
+	return false;
 }
 
 void ATantrumnPlayerController::SetInputContext(TSoftObjectPtr<UInputMappingContext> InMappingContext)
@@ -213,15 +269,6 @@ void ATantrumnPlayerController::SetInputContext(TSoftObjectPtr<UInputMappingCont
 				InputSystem->AddMappingContext(InMappingContextLoaded, 0, FModifyContextOptions());
 			}
 		}
-	}
-}
-
-void ATantrumnPlayerController::ServerRestartLevel_Implementation()
-{
-	ATantrumnGameModeBase* TantrumnGameMode = GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>();
-	if (ensureMsgf(TantrumnGameMode, TEXT("ATantrumnPlayerController::ServerRestartLevel_Implementation Invalid Game Mode")))
-	{
-		TantrumnGameMode->RestartGame();
 	}
 }
 
@@ -339,18 +386,6 @@ void ATantrumnPlayerController::RequestStopSprint()
 	}
 }
 
-bool ATantrumnPlayerController::CanProcessRequest() const
-{
-	if (TantrumnGameState && TantrumnGameState->IsPlaying())
-	{
-		if (const ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
-		{
-			return (TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Playing);
-		}
-	}
-	return false;
-}
-
 void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& ActionValue)
 {
 	// Before we throw we need to check if character is allowed to throw
@@ -421,20 +456,30 @@ void ATantrumnPlayerController::RequestStopHoldObject()
 	}
 }
 
-void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void ATantrumnPlayerController::C_SetControllerGameInputMode_Implementation(const ETantrumnInputMode InRequestedInputMode)
 {
-	if (InputComponent)
+	switch (InRequestedInputMode)
 	{
-		// Tear down Enhanced Input subsystem for mappings
-		if (const ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
+	case (ETantrumnInputMode::GameOnly):
 		{
-			if (UEnhancedInputLocalPlayerSubsystem* InputSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
-			{
-				if (!GameInputMapping.IsNull())
-				{
-					InputSystem->ClearAllMappings();
-				}
-			}
+			const FInputModeGameOnly InputMode;
+			SetInputMode(InputMode);
+			SetShowMouseCursor(false);
+			break;
+		}
+	case (ETantrumnInputMode::GameAndUI):
+		{
+			const FInputModeGameAndUI InputMode;
+			SetInputMode(InputMode);
+			SetShowMouseCursor(true);
+			break;
+		}
+	case (ETantrumnInputMode::UIOnly):
+		{
+			const FInputModeUIOnly InputMode;
+			SetInputMode(InputMode);
+			SetShowMouseCursor(true);
+			break;
 		}
 	}
 }

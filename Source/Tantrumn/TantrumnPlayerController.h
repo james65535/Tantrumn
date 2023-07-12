@@ -9,10 +9,21 @@
 #include "Sound/SoundCue.h"
 #include "TantrumnPlayerController.generated.h"
 
+enum class ETantrumnGameType : uint8;
+class UTantrumnGameElementsRegistry;
 class UTantrumnGameWidget;
 class UUserWidget;
 class ATantrumnGameStateBase;
 class ATantrumnHUD;
+
+// ENUM To Specify What type of InputMode to Request
+UENUM(BlueprintType)
+enum class ETantrumnInputMode : uint8
+{
+	GameOnly		UMETA(DisplayName = "GameOnly No Cursor"),
+	GameAndUI		UMETA(DisplayName = "Game and UI With Cursor"),
+	UIOnly		UMETA(DisplayName = "UI With Cursor"),
+};
 
 UCLASS()
 class TANTRUMN_API ATantrumnPlayerController : public APlayerController
@@ -33,19 +44,36 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void OnRetrySelected();
 
+	/** Called by Game Widget */
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void OnReadySelected();
+	/** Called by Client Ready */
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "Tantrumn")
+	void S_OnReadySelected();
+
+	/** Restart the level on client */
 	UFUNCTION(Client, Reliable, Category = "Tantrumn")
-	void ClientRestartGame();
+	void C_ResetPlayer();
+	UFUNCTION(Client, Reliable, Category = "Tantrumn")
+	void C_StartGameCountDown(const float InCountDownDuration);
+
+	/* Used for HUD and Montage Updates When Player Finishes the Round */
+	UFUNCTION(Client, Reliable, Category = "Tantrumn")
+	void C_FinishedRound();
+	/* Used for HUD and Montage Updates When Player Finishes the Round */
+	UFUNCTION(Client, Unreliable, Category = "Tantrumn")
+	void C_RequestFinalResults();
 	
+	/* Called by Server Authority to restart level */
+	UFUNCTION(Server, Reliable, Category = "Tantrumn")
+	void S_RestartLevel();
+
 	/*
-	 * TODO This needs to be named better, it just displays the end screen
-	 * this will be separate, as it will come after the montage.
-	 * Client gets HUD Authority needs to replicate the montage
+	 * Set the controller inputmode and cursor show
+	 * @param InRequestedInputMode GameOnly / ShowCursor False  GameAndUI, UIOnly / Show Cursor True
 	 */
 	UFUNCTION(Client, Reliable, Category = "Tantrumn")
-	void ClientReachedEnd();
-	
-	UFUNCTION(Server, Reliable, Category = "Tantrumn")
-	void ServerRestartLevel();
+	void C_SetControllerGameInputMode(const ETantrumnInputMode InRequestedInputMode);
 
 protected:
 	
@@ -54,16 +82,23 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+
+	// TODO
+	// Implement get gametype from state and supply hud with UI elements data asset
 	
 	/** Player HUD */
-	UPROPERTY(EditDefaultsOnly, Category = "HUD")
+	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn UI")
 	ATantrumnHUD* PlayerHUD;
+	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn UI")
+	UTantrumnGameElementsRegistry* GameElementsRegistry;
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void UpdateHUDWithGameUIElements(ETantrumnGameType InGameType);
 	
 	/** Level Menu Display Requests */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void RequestDisplayLevelMenu();
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	void RequestRemoveLevelMenu();
+	void RequestHideLevelMenu();
 
 	UPROPERTY()
 	ATantrumnGameStateBase* TantrumnGameState;
