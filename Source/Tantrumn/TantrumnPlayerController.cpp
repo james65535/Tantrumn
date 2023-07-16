@@ -227,10 +227,10 @@ void ATantrumnPlayerController::MatchPlayStart(const float InMatchStartTime)
 	TantrumnPlayerState->SetCurrentState(EPlayerGameState::Playing);
 	TantrumnPlayerState->SetIsWinner(false);
 	SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
-	if (!IsRunningDedicatedServer())
-	{
-		PlayerHUD->DisplayGameTime(InMatchStartTime);
-	}
+	// if (!IsRunningDedicatedServer())
+	// {
+	// 	PlayerHUD->DisplayGameTime(InMatchStartTime);
+	// }
 }
 
 void ATantrumnPlayerController::FinishedMatch()
