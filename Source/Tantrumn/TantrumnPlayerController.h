@@ -12,11 +12,11 @@
 enum class ETantrumnGameType : uint8;
 class UTantrumnGameElementsRegistry;
 class UTantrumnGameWidget;
-class UUserWidget;
 class ATantrumnGameStateBase;
+class ATantrumnPlayerState;
 class ATantrumnHUD;
 
-// ENUM To Specify What type of InputMode to Request
+/** To Specify What type of InputMode to Request */
 UENUM(BlueprintType)
 enum class ETantrumnInputMode : uint8
 {
@@ -57,12 +57,12 @@ public:
 	UFUNCTION(Client, Reliable, Category = "Tantrumn")
 	void C_StartGameCountDown(const float InCountDownDuration);
 
-	/* Used for HUD and Montage Updates When Player Finishes the Round */
-	UFUNCTION(Client, Reliable, Category = "Tantrumn")
-	void C_FinishedRound();
-	/* Used for HUD and Montage Updates When Player Finishes the Round */
-	UFUNCTION(Client, Unreliable, Category = "Tantrumn")
-	void C_RequestFinalResults();
+	UFUNCTION()
+	void FinishedMatch();
+	
+	/* Get the final results and call hud to display */
+	UFUNCTION()
+	void RequestDisplayFinalResults() const;
 	
 	/* Called by Server Authority to restart level */
 	UFUNCTION(Server, Reliable, Category = "Tantrumn")
@@ -72,19 +72,22 @@ public:
 	 * Set the controller inputmode and cursor show
 	 * @param InRequestedInputMode GameOnly / ShowCursor False  GameAndUI, UIOnly / Show Cursor True
 	 */
-	UFUNCTION(Client, Reliable, Category = "Tantrumn")
-	void C_SetControllerGameInputMode(const ETantrumnInputMode InRequestedInputMode);
+	UFUNCTION(NetMulticast, Reliable, Category = "Tantrumn")
+	void SetControllerGameInputMode(const ETantrumnInputMode InRequestedInputMode);
 
 protected:
 	
 	/** Class overrides */
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
-
-	// TODO
-	// Implement get gametype from state and supply hud with UI elements data asset
+	
+	UPROPERTY()
+	ATantrumnGameStateBase* TantrumnGameState;
+	UPROPERTY()
+	ATantrumnPlayerState* TantrumnPlayerState;
 	
 	/** Player HUD */
 	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn UI")
@@ -100,8 +103,11 @@ private:
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void RequestHideLevelMenu();
 
-	UPROPERTY()
-	ATantrumnGameStateBase* TantrumnGameState;
+	/** Run processes related to match start of play */
+	UFUNCTION()
+	void MatchPlayStart(const float InMatchStartTime);
+
+	/** Checks if player is allowed to input movement commands given current state of play */
 	bool CanProcessRequest() const;
 
 	/** Enhanced Input Setup */

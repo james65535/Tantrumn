@@ -12,13 +12,49 @@
 void ATantrumnHUD::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 	/** Get the GameUserSettings data container with which our work will depend upon */
 	UGameUserSettings* GameUserSettings = UGameUserSettings::GetGameUserSettings();
 	/** Deserialise settings from Disk - Ex: DefaultGameUserSettings.ini */
 	GameUserSettings->LoadSettings();
 	/** Overwrite any garbage with default settings if need be */
 	GameUserSettings->ValidateSettings();
+
+	TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetOwningPlayerController());
+	check(TantrumnPlayerController);
+	
+}
+
+UTantrumnGameWidget* ATantrumnHUD::AddSlotUI_Implementation(TSubclassOf<UTantrumnGameWidget> InWidgetClass, FName InSlotName)
+{
+	check(InWidgetClass);
+	if (BaseUIWidget == nullptr)
+	{
+		/** Base UI is the parent for all Widgets */
+		BaseUIWidget = AddWidget(BaseUIWidgetClass);
+		check(BaseUIWidget);
+	}
+
+	if (UTantrumnGameWidget* OutWidgetRef = CreateWidget<UTantrumnGameWidget>(GetOwningPlayerController(), InWidgetClass))
+	{
+		BaseUIWidget->SetContentForSlot(InSlotName, OutWidgetRef);
+		if(BaseUIWidget->GetContentForSlot(InSlotName) != nullptr)
+		{
+			return OutWidgetRef;
+		}
+	}
+	return nullptr;
+}
+
+UTantrumnGameWidget* ATantrumnHUD::AddWidget(const TSubclassOf<UTantrumnGameWidget> InWidgetClass) const
+{
+	check(InWidgetClass);
+	if(UTantrumnGameWidget* ReturnWidget = CreateWidget<UTantrumnGameWidget>(GetOwningPlayerController(), InWidgetClass))
+	{
+		ReturnWidget->AddToPlayerScreen();
+		return ReturnWidget;
+	}
+	return nullptr;
 }
 
 void ATantrumnHUD::CreateScreenResOpts(UPARAM(ref) TMap<FString, FIntPoint>& ScreenResOpts)
@@ -89,38 +125,6 @@ void ATantrumnHUD::ToggleLevelMenuDisplay(const bool bIsDisplayed)
 		LevelMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
 }
 
-UTantrumnGameWidget* ATantrumnHUD::AddSlotUI_Implementation(TSubclassOf<UTantrumnGameWidget> InWidgetClass, FName InSlotName)
-{
-	check(InWidgetClass);
-	if (BaseUIWidget == nullptr)
-	{
-		/** Base UI is the parent for all Widgets */
-		BaseUIWidget = AddWidget(BaseUIWidgetClass);
-		check(BaseUIWidget);
-	}
-
-	if (UTantrumnGameWidget* OutWidgetRef = CreateWidget<UTantrumnGameWidget>(GetOwningPlayerController(), InWidgetClass))
-	{
-		BaseUIWidget->SetContentForSlot(InSlotName, OutWidgetRef);
-		if(BaseUIWidget->GetContentForSlot(InSlotName) != nullptr)
-		{
-			return OutWidgetRef;
-		}
-	}
-	return nullptr;
-}
-
-UTantrumnGameWidget* ATantrumnHUD::AddWidget(const TSubclassOf<UTantrumnGameWidget> InWidgetClass) const
-{
-	check(InWidgetClass);
-	if(UTantrumnGameWidget* ReturnWidget = CreateWidget<UTantrumnGameWidget>(GetOwningPlayerController(), InWidgetClass))
-	{
-		ReturnWidget->AddToPlayerScreen();
-		return ReturnWidget;
-	}
-	return nullptr;
-}
-
 void ATantrumnHUD::DisplayResults(const TArray<FGameResult>& InResults) const
 {
 	checkfSlow(LevelMenuWidget, "Player HUD - Level Menu Widget was not set prior to call for display")
@@ -129,16 +133,18 @@ void ATantrumnHUD::DisplayResults(const TArray<FGameResult>& InResults) const
 
 void ATantrumnHUD::RemoveResults()
 {
-	if (LevelEndWidget){ LevelEndWidget->RemoveResults();	}
-	
+	if (LevelEndWidget){ LevelEndWidget->RemoveResults(); }
+	if (GameLevelWidget){ GameLevelWidget->LevelComplete(); }
 }
 
-void ATantrumnHUD::DisplayGameTimer(float GameTimeDuration)
+void ATantrumnHUD::DisplayGameTime(const float InGameTimeDuration) const 
 {
 	check(GameLevelWidget)
-	if (ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(GetOwningPlayerController()))
-	{
-		GameLevelWidget->InitiateGameTimer(GameTimeDuration, PlayerController);
+	GameLevelWidget->DisplayGameTimer(InGameTimeDuration);
+}
 
-	}
+void ATantrumnHUD::DisplayMatchStartCountDownTime(const float InMatchStartCountDownTime) const
+{
+	check(GameLevelWidget)
+	GameLevelWidget->InitiateMatchStartTimer(InMatchStartCountDownTime);
 }

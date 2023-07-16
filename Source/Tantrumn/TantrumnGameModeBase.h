@@ -7,6 +7,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "TantrumnGameModeBase.generated.h"
 
+enum class EPlayerGameState : uint8;
 class ATantrumnPlayerController;
 class UTantrumnGameWidget;
 
@@ -42,17 +43,19 @@ private:
 	/** Determine what type of game this mode should communicate to game state and downstream clients */
 	UPROPERTY(EditDefaultsOnly, NoClear, Category = "Tantrumn")
 	ETantrumnGameType DesiredGameType = ETantrumnGameType::None;
+
+	/** Used to offset start to avoid race conditions as game loads up */
+	float DelayStartDuration = 0.5f;
+	FTimerHandle DelayStartTimerHandle;
+
+	/** Game Mode will poll for all players ready and if not then try again in a specified time */
+	float MatchTryStartWaitDuration = 2.0f;
+	FTimerHandle MatchTryStartTimerHandle;
 	
 	/** Countdown before the gameplay state begins.  Exposed for BPs to change in editor */
 	UPROPERTY(EditAnywhere, Category = "Tantrumn")
 	int32 GameCountDownDuration = 1;
-	float DelayStartDuration = 0.5f;
-	FTimerHandle DelayStartTimerHandle;
 	FTimerHandle CountdownTimerHandle;
-
-	/** Game Mode will poll for all players ready and if not then try again in a specified time */
-	float RetryAttemptStartWaitDuration = 2.0f;
-	FTimerHandle RetryStartTimerHandle;
 	
 	/** Allows Game Mode to determine if a single or multiplayer game is intended */
 	UPROPERTY(EditAnywhere, Category = "Tantrumn")
@@ -65,5 +68,5 @@ private:
 	void DisplayCountDown();
 	void StartGame();
 
-	bool AllPlayersReady() const;
+	bool CheckAllPlayersStatus(const EPlayerGameState StateToCheck) const;
 };

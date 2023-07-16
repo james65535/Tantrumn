@@ -8,6 +8,7 @@
 #include "TantrumnCharMovementComponent.h"
 #include "ThrowableActor.h"
 #include "DrawDebugHelpers.h"
+#include "TantrumnAIController.h"
 #include "TantrumnPlayerState.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -62,15 +63,12 @@ void ATantrumnCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	FDoRepLifetimeParams SharedParams;
-	SharedParams.bIsPushBased = true;
 	SharedParams. Condition = COND_SkipOwner;
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, CharacterThrowState, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, bIsStunned, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, bIsBeingRescued, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, LastGroundPosition, SharedParams);
 }
-
-
 
 // Called when the game starts or when spawned
 void ATantrumnCharacterBase::BeginPlay()
@@ -93,13 +91,14 @@ void ATantrumnCharacterBase::Tick(float DeltaTime)
 		UpdateThrowMontagePlayRate();
 		return;
 	}
-
+	
 	if (IsBeingRescued())
 	{
 		UpdateRescue(DeltaTime);
 		return;
 	}
 
+	// TODO review this
 	// Exit before processing tick if this is a replica on a remote system
 	if (!IsLocallyControlled())
 	{
@@ -802,21 +801,21 @@ bool ATantrumnCharacterBase::PlayCelebrateMontage()
 	return bPlayedSuccessfully;
 }
 
-void ATantrumnCharacterBase::ServerPlayCelebrateMontage_Implementation()
+void ATantrumnCharacterBase::NM_FinishedMatch_Implementation()
 {
-	MulticastPlayCelebrateMontage();
-}
-
-void ATantrumnCharacterBase::MulticastPlayCelebrateMontage_Implementation()
-{
+	GetCharacterMovement()->DisableMovement();
 	PlayCelebrateMontage();
+	if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetController()))
+	{
+		TantrumnPlayerController->FinishedMatch();
+	} 
 }
 
 void ATantrumnCharacterBase::UpdateThrowMontagePlayRate()
 {
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
-		if (UAnimMontage* CurrentAnimMontage = AnimInstance->GetCurrentActiveMontage())
+		if (const UAnimMontage* CurrentAnimMontage = AnimInstance->GetCurrentActiveMontage())
 		{
 			// Speed up the playrate when at the throwing part of the animation.
 			// The initial interaction animation wasn't intended as a throw so it is slow

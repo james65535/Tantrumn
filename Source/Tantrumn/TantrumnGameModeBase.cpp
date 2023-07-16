@@ -48,13 +48,12 @@ void ATantrumnGameModeBase::AttemptStartGame()
 		TantrumnGameState->SetGameState(ETantrumnGameState::Waiting);
 	}
 
-	if (AllPlayersReady())
+	if (CheckAllPlayersStatus(EPlayerGameState::Ready))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("GameMode: %s - All Players Ready"), *GetName());
 		// This needs to be replicated, call a function on game instance and replicate
 		if (GameCountDownDuration > SMALL_NUMBER)
 		{
-			//DisplayCountDown();
 			GetWorld()->GetTimerManager().SetTimer(DelayStartTimerHandle,
 				this, &ATantrumnGameModeBase::DisplayCountDown,
 				DelayStartDuration,
@@ -66,16 +65,16 @@ void ATantrumnGameModeBase::AttemptStartGame()
 		}
 	} else
 	{
+		// TODO Get rid of this timer and just do a check for final ready
 		UE_LOG(LogTemp, Warning, TEXT("GameMode: %s - Not all players ready"), *GetName());
 		GetWorld()->GetTimerManager().SetTimer(
-			RetryStartTimerHandle,
+			MatchTryStartTimerHandle,
 			this, &ATantrumnGameModeBase::AttemptStartGame,
-			RetryAttemptStartWaitDuration,
+			MatchTryStartWaitDuration,
 			false);
 	}
 }
 
-// TODO review multiplayer impact
 void ATantrumnGameModeBase::DisplayCountDown()
 {
 	/**
@@ -113,13 +112,11 @@ void ATantrumnGameModeBase::StartGame()
 		UE_LOG(LogTemp, Warning, TEXT("This System does not have authority to start game"));
 		return;
 	}
-	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Gamemode entering playing state"));
-		TantrumnGameState->SetGameState(ETantrumnGameState::Playing);
-		TantrumnGameState->ClearResults();
-	}
-
+	ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>();
+	check(TantrumnGameState);
+	UE_LOG(LogTemp, Warning, TEXT("Gamemode entering playing state"));
+	TantrumnGameState->NM_MatchStart();
+	
 	/** Restore control to Players and reset Player State for Players and AI */
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
@@ -127,7 +124,6 @@ void ATantrumnGameModeBase::StartGame()
 		check(PlayerController);
 		if (!MustSpectate(PlayerController))
 		{
-			PlayerController->C_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
 			ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>();
 			check(PlayerState);
 			PlayerState->SetCurrentState(EPlayerGameState::Playing);
@@ -147,16 +143,16 @@ void ATantrumnGameModeBase::StartGame()
 	}
 }
 
-bool ATantrumnGameModeBase::AllPlayersReady() const
+bool ATantrumnGameModeBase::CheckAllPlayersStatus(const EPlayerGameState StateToCheck) const
 {
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		if(const ATantrumnPlayerState* PlayerState =
 			Cast<APlayerController>(Iterator->Get())->GetPlayerState<ATantrumnPlayerState>())
 		{
-			if (PlayerState->GetCurrentState() != EPlayerGameState::Ready)
+			if (PlayerState->GetCurrentState() != StateToCheck)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("PlayerID: %i is not ready"), PlayerState->GetPlayerId())
+				UE_LOG(LogTemp, Warning, TEXT("PlayerID: %i did not match requested state"), PlayerState->GetPlayerId())
 				return false;
 			}
 		}
@@ -184,7 +180,6 @@ void ATantrumnGameModeBase::RestartPlayer(AController* NewPlayer)
 
 void ATantrumnGameModeBase::RestartGame()
 {
-
 	// Destroy existing AI and let level reset create a fresh one on game restart
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{

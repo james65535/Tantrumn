@@ -48,13 +48,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Stun")
 	void RequestStunStart(const float DurationMultiplier);
 	
-	/*
-	 * Note:
-	 * Changing a replicated variable's value on the client is not recommended. The value will continue to differ from
-	 * the server's value until the next time the server detects a change and sends an update.
-	 * If the server's copy of the property does not change very often, it could be a long time before the client receives a correction.
-	 * 
-	 */
 	// Stun
 	UPROPERTY(BlueprintReadOnly, replicatedUsing=OnRep_IsStunned)
 	bool bIsStunned;
@@ -104,17 +97,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Throw")
 	void RequestStopAim();
 
-	// Internal throw functions
+	/** Internal throw functions */
+	/** Check if Character is in a Throwing State */
 	UFUNCTION(BlueprintPure, Category = "Throw")
-	bool IsThrowing() { return CharacterThrowState == ECharacterThrowState::Throwing; }
+	bool IsThrowing() const { return CharacterThrowState == ECharacterThrowState::Throwing; }
 	void OnThrowableAttached(AThrowableActor* InThrowableActor);
 	bool CanThrowObject() const { return CharacterThrowState == ECharacterThrowState::Aiming;}
 
-	// Animation Montage for times of celebration such as winning race
-	UFUNCTION(Server, Reliable)
-	void ServerPlayCelebrateMontage();
+	/** Animation Montage for times of celebration such as winning race */
+	UFUNCTION()
+	bool PlayCelebrateMontage();
 
-protected:
+	/** Activities needed after finishing a match */
+	UFUNCTION(NetMulticast, Reliable)
+	void NM_FinishedMatch();
+
+private:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	
@@ -122,7 +120,7 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	// Custom character movement Component
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Movement")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta=(AllowPrivateAccess), Category = "Movement")
 	class UTantrumnCharMovementComponent* TantrumnCharMoveComp;
 
 	// Server RPCs for character sprint
@@ -152,24 +150,20 @@ protected:
 	void ServerBeginThrow();
 	UFUNCTION(Server, Reliable)
 	void ServerFinishThrow();
-	UFUNCTION() // Note: this function definition varies from class video
+	UFUNCTION()
 	void OnRep_CharacterThrowState(const ECharacterThrowState& OldCharacterThrowState);
-	// This was not in the class download file
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	UFUNCTION(Server, Reliable)
 	void ServerRequestToggleAim(bool IsAiming);
 
 	// Used for throw animation
 	bool PlayThrowMontage();
-	bool PlayCelebrateMontage();
 	void UpdateThrowMontagePlayRate();
 	void UnbindMontage();
 	UFUNCTION()
 	void OnMontageBlendingOut(UAnimMontage* Montage, bool bInterrupted);
 	UFUNCTION()
 	void OnMontageEnded(UAnimMontage* Montage, bool bInterrupted);
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayCelebrateMontage();
 	UFUNCTION()
 	void OnNotifyBeginReceived(FName NotifyName, const FBranchingPointNotifyPayload& BranchingPointNotifyPayload);
 	UFUNCTION()

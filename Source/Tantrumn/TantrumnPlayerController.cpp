@@ -13,7 +13,6 @@
 #include "EnhancedInput/Public/EnhancedInputComponent.h"
 #include "EnhancedInput//Public/EnhancedInputSubsystems.h"
 #include "EnhancedInput/Public/InputActionValue.h"
-#include "GameFramework/CharacterMovementComponent.h"
 
 // Console variable to toggle character throwing velocity
 static TAutoConsoleVariable<bool> CVarDisplayLaunchInputDelta(
@@ -22,34 +21,29 @@ static TAutoConsoleVariable<bool> CVarDisplayLaunchInputDelta(
 	TEXT("Display Launch Input Delta"),
 	ECVF_Default);
 
-
-
 void ATantrumnPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
 	TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>();
+	check(TantrumnGameState);
 
+	/** Player HUD related Tasks */
 	if (!IsRunningDedicatedServer())
 	{
 		/** Specify HUD Representation at start of play */
 		PlayerHUD = Cast<ATantrumnHUD>(GetHUD());
-		/** Game Starts with a UI */
-		C_SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
 		/** If Local game as listener or single player then Grab Gametype, otherwise use delegate to update on replication */
 		UpdateHUDWithGameUIElements(TantrumnGameState->GetGameType());
 		TantrumnGameState->OnGameTypeUpdateDelegate.AddUObject(this, &ATantrumnPlayerController::UpdateHUDWithGameUIElements);
-
-		/* Set Enhanced Input Mapping Context to Game Context */
-		check(InputComponent);
-		SetInputContext(GameInputMapping);
 	}
-	
+
+	/* Set Enhanced Input Mapping Context to Game Context */
+	SetInputContext(GameInputMapping);
 	// Get Input Component as Enhanced Input Component
 	if (UEnhancedInputComponent* EIPlayerComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
 		// Enhanced Input Action Bindings
-
 		// Character locomotion
 		EIPlayerComponent->BindAction(InputActions->InputMove,
 			ETriggerEvent::Triggered,
@@ -124,6 +118,34 @@ void ATantrumnPlayerController::BeginPlay()
 			this,
 			&ATantrumnPlayerController::RequestHideLevelMenu);
 	}
+
+	/** Game Starts with a UI */
+	SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
+	
+	/** Listen for match start announcements */
+	TantrumnGameState->OnStartMatchDelegate.AddUObject(this, &ATantrumnPlayerController::MatchPlayStart);
+}
+
+void ATantrumnPlayerController::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	
+	if (!IsRunningDedicatedServer() && TantrumnPlayerState)
+	{
+		if(TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Playing)
+		{
+			PlayerHUD->DisplayGameTime(TantrumnGameState->GetMatchDeltaTime());
+		} 
+	}
+}
+
+bool ATantrumnPlayerController::CanProcessRequest() const
+{
+	if (TantrumnGameState && TantrumnGameState->IsGameInPlay())
+	{
+		return (TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Playing);
+	}
+	return false;
 }
 
 void ATantrumnPlayerController::OnPossess(APawn* InPawn)
@@ -138,32 +160,6 @@ void ATantrumnPlayerController::OnUnPossess()
 	UE_LOG(LogTemp, Warning, TEXT("OnUnPossess: %s"), *GetName());
 }
 
-void ATantrumnPlayerController::C_ResetPlayer_Implementation()
-{
-	check(PlayerHUD);
-	PlayerHUD->RemoveResults();
-	// TODO this should be menu
-	SetInputContext(GameInputMapping);
-	C_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
-}
-
-void ATantrumnPlayerController::C_FinishedRound_Implementation()
-{
-	if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(GetCharacter()))
-	{
-		TantrumnCharacterBase->ServerPlayCelebrateMontage();
-		TantrumnCharacterBase->GetCharacterMovement()->DisableMovement();
-		RequestHideLevelMenu();
-		SetInputContext(MenuInputMapping);
-		C_SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
-	}
-}
-
-void ATantrumnPlayerController::C_RequestFinalResults_Implementation()
-{
-	PlayerHUD->DisplayResults(TantrumnGameState->GetResults());
-}
-
 void ATantrumnPlayerController::OnRetrySelected()
 {
 	S_RestartLevel();
@@ -171,22 +167,29 @@ void ATantrumnPlayerController::OnRetrySelected()
 
 void ATantrumnPlayerController::OnReadySelected()
 {
+	if (!TantrumnPlayerState)
+	{
+		TantrumnPlayerState = CastChecked<ATantrumnPlayerState>(PlayerState);
+	}
 	S_OnReadySelected();
-}
-
-void ATantrumnPlayerController::C_StartGameCountDown_Implementation(const float InCountDownDuration)
-{
-	PlayerHUD->DisplayGameTimer(InCountDownDuration);
 }
 
 void ATantrumnPlayerController::S_OnReadySelected_Implementation()
 {
 	if (GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>())
 	{
-		ATantrumnPlayerState* TantrumnPlayerState = Cast<ATantrumnPlayerState>(PlayerState);
+		if (!TantrumnPlayerState)
+		{
+			TantrumnPlayerState = Cast<ATantrumnPlayerState>(PlayerState);
+		}
 		TantrumnPlayerState->SetCurrentState(EPlayerGameState::Ready);
 		UE_LOG(LogTemp, Warning, TEXT("Player set self to ready. State: %hhd"), TantrumnPlayerState->GetCurrentState())
 	}
+}
+
+void ATantrumnPlayerController::C_StartGameCountDown_Implementation(const float InCountDownDuration)
+{
+	PlayerHUD->DisplayMatchStartCountDownTime(InCountDownDuration);
 }
 
 void ATantrumnPlayerController::UpdateHUDWithGameUIElements(ETantrumnGameType InGameType)
@@ -204,7 +207,7 @@ void ATantrumnPlayerController::RequestDisplayLevelMenu()
 	{
 		SetInputContext(MenuInputMapping);
 		PlayerHUD->ToggleLevelMenuDisplay(true);
-		C_SetControllerGameInputMode(ETantrumnInputMode::GameAndUI);
+		SetControllerGameInputMode(ETantrumnInputMode::GameAndUI);
 	}
 }
 
@@ -214,8 +217,45 @@ void ATantrumnPlayerController::RequestHideLevelMenu()
 	{
 		SetInputContext(GameInputMapping);
 		PlayerHUD->ToggleLevelMenuDisplay(false);
-		C_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
+		SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
 	}
+}
+
+void ATantrumnPlayerController::MatchPlayStart(const float InMatchStartTime)
+{
+	check(TantrumnPlayerState)
+	TantrumnPlayerState->SetCurrentState(EPlayerGameState::Playing);
+	TantrumnPlayerState->SetIsWinner(false);
+	SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
+	if (!IsRunningDedicatedServer())
+	{
+		PlayerHUD->DisplayGameTime(InMatchStartTime);
+	}
+}
+
+void ATantrumnPlayerController::FinishedMatch()
+{
+	if (!IsRunningDedicatedServer())
+	{
+		RequestHideLevelMenu();
+		SetInputContext(MenuInputMapping);
+		SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
+	}
+}
+
+void ATantrumnPlayerController::RequestDisplayFinalResults() const
+{
+	if (!IsRunningDedicatedServer())
+	{
+		PlayerHUD->DisplayResults(TantrumnGameState->GetResults());
+	}
+}
+
+void ATantrumnPlayerController::C_ResetPlayer_Implementation()
+{
+	check(PlayerHUD);
+	PlayerHUD->RemoveResults();
+	UpdateHUDWithGameUIElements(TantrumnGameState->GetGameType());
 }
 
 void ATantrumnPlayerController::S_RestartLevel_Implementation()
@@ -229,8 +269,6 @@ void ATantrumnPlayerController::S_RestartLevel_Implementation()
 
 void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	check(InputComponent);
-
 	// Tear down Enhanced Input subsystem for mappings
 	if (const ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
 	{
@@ -242,18 +280,6 @@ void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason
 			}
 		}
 	}
-}
-
-bool ATantrumnPlayerController::CanProcessRequest() const
-{
-	if (TantrumnGameState && TantrumnGameState->IsGameInPlay())
-	{
-		if (const ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
-		{
-			return (TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Playing);
-		}
-	}
-	return false;
 }
 
 void ATantrumnPlayerController::SetInputContext(TSoftObjectPtr<UInputMappingContext> InMappingContext)
@@ -456,7 +482,7 @@ void ATantrumnPlayerController::RequestStopHoldObject()
 	}
 }
 
-void ATantrumnPlayerController::C_SetControllerGameInputMode_Implementation(const ETantrumnInputMode InRequestedInputMode)
+void ATantrumnPlayerController::SetControllerGameInputMode_Implementation(const ETantrumnInputMode InRequestedInputMode)
 {
 	switch (InRequestedInputMode)
 	{

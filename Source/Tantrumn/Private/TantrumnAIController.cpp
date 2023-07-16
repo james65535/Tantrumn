@@ -3,7 +3,6 @@
 
 #include "TantrumnAIController.h"
 #include "TantrumnPlayerState.h"
-#include "Tantrumn/TantrumnCharacterBase.h"
 
 void ATantrumnAIController::OnPossess(APawn* InPawn)
 {
@@ -17,12 +16,4 @@ void ATantrumnAIController::OnPossess(APawn* InPawn)
 void ATantrumnAIController::OnUnPossess()
 {
 	Super::OnUnPossess();
-}
-
-void ATantrumnAIController::OnReachedEnd()
-{
-	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-	{
-		TantrumnCharacter->ServerPlayCelebrateMontage();
-	}
 }

@@ -9,6 +9,7 @@
 #include "TantrumnHUD.generated.h"
 
 class UTantrumnGameWidget;
+class ATantrumnPlayerController;
 
 /**
  * 
@@ -57,7 +58,10 @@ public:
 	
 	// TODO Determine if reliable can be removed
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	void DisplayGameTimer(float GameTimeDownDuration);
+	void DisplayGameTime(const float InGameTimeDuration) const ;
+
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void DisplayMatchStartCountDownTime(const float InMatchStartCountDownTime) const ;
 
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void DisplayResults(const TArray<FGameResult>& InResults) const;
@@ -70,6 +74,9 @@ public:
 	void ToggleLevelMenuDisplay(const bool bIsDisplayed);
 
 private:
+
+	UPROPERTY()
+	ATantrumnPlayerController* TantrumnPlayerController;
 	
 	/** Funcs to Specify UI Elements */
 	/** Level Specific UI */

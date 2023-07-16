@@ -52,7 +52,10 @@ class TANTRUMN_API UTantrumnGameWidget : public UUserWidget
 public:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
-	void InitiateGameTimer(float CountDownTime, class ATantrumnPlayerController* TantrumnPlayerController);
+	void InitiateMatchStartTimer(float CountDownTime);
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
+	void DisplayGameTimer(float MatchStartTime);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
 	void LevelComplete();

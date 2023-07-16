@@ -10,11 +10,13 @@ void ATantrumnPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	FDoRepLifetimeParams SharedParams;
-	SharedParams.bIsPushBased = true;
-	SharedParams.RepNotifyCondition = REPNOTIFY_OnChanged;
-
-	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnPlayerState, CurrentState, SharedParams);
+	//SharedParams.bIsPushBased = true;
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnPlayerState, bIsWinner, SharedParams);
+	
+	FDoRepLifetimeParams RepNotifyParams;
+	//RepNotifyParams.bIsPushBased = true;
+	RepNotifyParams.RepNotifyCondition = REPNOTIFY_OnChanged;
+	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnPlayerState, CurrentState, RepNotifyParams);
 }
 
 void ATantrumnPlayerState::SetCurrentState(const EPlayerGameState PlayerGameState)

@@ -51,6 +51,8 @@ struct FGameResult
 /** Begin Delegates */
 /** Notify listeners such as player controller that game type has changed */
 DECLARE_MULTICAST_DELEGATE_OneParam(FGameTypeUpdateDelegate, ETantrumnGameType);
+/** Notify listeners match has started with the match start time */
+DECLARE_MULTICAST_DELEGATE_OneParam(FStartMatch, float);
 
 /*
  * Inherits from Actor so can replicate data
@@ -61,9 +63,14 @@ class TANTRUMN_API ATantrumnGameStateBase : public AGameStateBase
 	GENERATED_BODY()
 
 public:
-
+	
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void SetGameState(const ETantrumnGameState InGameState);
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	ETantrumnGameState GetGameState() const { return TantrumnGameState; };
+	/** Quick Check to Determine if Game State is Playing */
+	UFUNCTION(BlueprintPure)
+	bool IsGameInPlay() const { return TantrumnGameState == ETantrumnGameState::Playing;}
 
 	/** Game Type Public Accessors */
 	/** Set the Game Type - Should Correspond with GameMode */
@@ -72,18 +79,24 @@ public:
 	/** Get the Game Type - Should Correspond with GameMode */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	ETantrumnGameType GetGameType() const { return TantrumnGameType;}
-
-	/** Quick Check to Determine if Game State is Playing */
-	UFUNCTION(BlueprintPure)
-	bool IsGameInPlay() const { return TantrumnGameState == ETantrumnGameState::Playing;}
 	
-	// TODO This will only be called on a system which has Authority, review this
+	/** TODO This will only be called on a system which has Authority, review this
+	 * Should be in game mode */
 	void OnPlayerReachedEnd(ATantrumnCharacterBase* TantrumnCharacter);
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	const TArray<FGameResult>& GetResults() { return Results; }
 	UFUNCTION()
 	void ClearResults();
+	
+	/** Methods relating to Match Start and Time Management */
+	UFUNCTION(NetMulticast, Reliable, Category = "Tantrumn")
+	void NM_MatchStart();
+	FStartMatch OnStartMatchDelegate;
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	float GetMatchStartTime() const { return MatchStartTime; }
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	float GetMatchDeltaTime() const { return FGenericPlatformTime::ToSeconds(FPlatformTime::Cycles())-MatchStartTime; }
 
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void SetTimerValue(const float InVal) { CountDownStartTime = InVal;}
@@ -93,30 +106,38 @@ public:
 private:
 
 	/** Game Results */
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "Tantrumn States")
+	UPROPERTY(VisibleAnywhere, ReplicatedUsing=OnRep_Results, Category = "Tantrumn States")
 	TArray<FGameResult> Results;
+	UFUNCTION()
+	void OnRep_Results();
 	/** Can be called during and after play */
-	void UpdateResults(ATantrumnPlayerState* PlayerState, ATantrumnCharacterBase* TantrumnCharacter);
-
+	void UpdateResults(const ATantrumnCharacterBase* InTantrumnCharacter);
+	/** Check if all results are in then let clients know the final results */
+	void TryFinaliseScoreBoard();
+	bool CheckAllResultsIn() const ;
+	
 	/** The State of the Game */
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_GameState, Category = "Tantrumn States")
 	ETantrumnGameState TantrumnGameState = ETantrumnGameState::None;
 	UPROPERTY()
 	ETantrumnGameState OldTantrumnGameState = ETantrumnGameState::None;
 	UFUNCTION()
-	void OnRep_GameState();
+	void OnRep_GameState() const;
 
 	/** The type of game being played - is correlated to which gamemode is selected */
 	UPROPERTY(VisibleAnywhere, ReplicatedUsing = OnRep_GameType, Category = "Tantrumn States")
 	ETantrumnGameType TantrumnGameType = ETantrumnGameType::None;
 	UFUNCTION()
-	void OnRep_GameType();
+	void OnRep_GameType() const;
 
 	/** Game Time Values */
 	/** Time Amount in Seconds Used for Game Countdowns */
 	UPROPERTY(VisibleAnywhere, Replicated, Category = "Tantrumn States")
 	float CountDownStartTime;
-	/** Time Amount in Seconds Used for Match Play Time  */
+	/** Time Amount in Seconds Used for Matches of a certain Play Length  */
 	UPROPERTY(VisibleAnywhere, Replicated, Category = "Tantrumn States")
-	float MatchTimer = 0.0f;
+	float MatchTimeLength = 0.0f;
+
+	UPROPERTY(Replicated, VisibleAnywhere, Category = "Tantrumn States")
+	float MatchStartTime;
 };
