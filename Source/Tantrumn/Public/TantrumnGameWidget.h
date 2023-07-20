@@ -7,10 +7,6 @@
 #include "TantrumnGameStateBase.h"
 #include "TantrumnGameWidget.generated.h"
 
-/**
- * 
- */
-
 enum class ETantrumnGameType : uint8;
 
 USTRUCT(BlueprintType, Category = "Tantrumn UI")
@@ -26,6 +22,10 @@ public:
 	FName WidgetSlot;
 };
 
+/**
+ * This class is a good place to trace back from when trying to find which game logic impacts what is
+ * displayed in the HUD
+ */
 
 USTRUCT(BlueprintType, Category = "Tantrumn UI")
 struct FGameUI
@@ -55,10 +55,15 @@ public:
 	void InitiateMatchStartTimer(float CountDownTime);
 	
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
-	void DisplayGameTimer(float MatchStartTime);
+	void DisplayGameTimer();
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
+	void HideGameTimer();
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
-	void LevelComplete();
+	void UpdateOnFinish();
+
+	UPROPERTY(BlueprintReadOnly, VisibleAnywhere)
+	FText DisplayedMatchTime;
 
 	/**
 	 * Display Results of Finished Game

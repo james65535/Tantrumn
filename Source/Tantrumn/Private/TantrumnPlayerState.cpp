@@ -8,15 +8,11 @@
 void ATantrumnPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	FDoRepLifetimeParams SharedParams;
-	//SharedParams.bIsPushBased = true;
-	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnPlayerState, bIsWinner, SharedParams);
 	
-	FDoRepLifetimeParams RepNotifyParams;
-	//RepNotifyParams.bIsPushBased = true;
-	RepNotifyParams.RepNotifyCondition = REPNOTIFY_OnChanged;
-	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnPlayerState, CurrentState, RepNotifyParams);
+	FDoRepLifetimeParams PushedRepNotifyParams;
+	PushedRepNotifyParams.bIsPushBased = true;
+	PushedRepNotifyParams.RepNotifyCondition = REPNOTIFY_OnChanged;
+	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnPlayerState, CurrentState, PushedRepNotifyParams);
 }
 
 void ATantrumnPlayerState::SetCurrentState(const EPlayerGameState PlayerGameState)
@@ -24,10 +20,11 @@ void ATantrumnPlayerState::SetCurrentState(const EPlayerGameState PlayerGameStat
 	if (HasAuthority())
 	{
 		CurrentState = PlayerGameState;
+		MARK_PROPERTY_DIRTY_FROM_NAME(ATantrumnPlayerState, CurrentState, this);
 	}
 }
 
 void ATantrumnPlayerState::OnRep_CurrentState()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Player State Updated to: %hhd"), CurrentState);
+	UE_LOG(LogTemp, Warning, TEXT("Player %s State Updated to: %s"), *GetPlayerName() ,*UEnum::GetDisplayValueAsText(CurrentState).ToString());
 }

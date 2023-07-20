@@ -500,7 +500,7 @@ bool ATantrumnCharacterBase::IsHovering() const
 {
 	if (const ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
 	{
-		return TantrumnPlayerState->GetCurrentState() != EPlayerGameState::Playing;
+		return TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Waiting;
 	}
 
 	return false;
@@ -803,12 +803,12 @@ bool ATantrumnCharacterBase::PlayCelebrateMontage()
 
 void ATantrumnCharacterBase::NM_FinishedMatch_Implementation()
 {
-	GetCharacterMovement()->DisableMovement();
-	PlayCelebrateMontage();
 	if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetController()))
 	{
 		TantrumnPlayerController->FinishedMatch();
-	} 
+	}
+	GetCharacterMovement()->DisableMovement();
+	PlayCelebrateMontage();
 }
 
 void ATantrumnCharacterBase::UpdateThrowMontagePlayRate()
@@ -858,6 +858,7 @@ void ATantrumnCharacterBase::OnMontageEnded(UAnimMontage* Montage, bool bInterru
 			ThrowableActor = nullptr;
 		}
 	}
+	// TODO Re-implement winner celebration
 	else if (Montage == CelebrateMontage)
 	{
 		if (ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())

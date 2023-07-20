@@ -22,7 +22,9 @@ void ATantrumnHUD::BeginPlay()
 
 	TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetOwningPlayerController());
 	check(TantrumnPlayerController);
-	
+
+	/** Reduce displayed timer to max 1 digit fractional, ex from 2.54 to 2.5 */
+	FloatDisplayFormat.SetMaximumFractionalDigits(1);
 }
 
 UTantrumnGameWidget* ATantrumnHUD::AddSlotUI_Implementation(TSubclassOf<UTantrumnGameWidget> InWidgetClass, FName InSlotName)
@@ -134,17 +136,29 @@ void ATantrumnHUD::DisplayResults(const TArray<FGameResult>& InResults) const
 void ATantrumnHUD::RemoveResults()
 {
 	if (LevelEndWidget){ LevelEndWidget->RemoveResults(); }
-	if (GameLevelWidget){ GameLevelWidget->LevelComplete(); }
 }
 
-void ATantrumnHUD::DisplayGameTime(const float InGameTimeDuration) const 
+void ATantrumnHUD::ToggleDisplayGameTime(const bool bIsDisplayed) const 
 {
 	check(GameLevelWidget)
-	GameLevelWidget->DisplayGameTimer(InGameTimeDuration);
+	bIsDisplayed ? 
+		GameLevelWidget->DisplayGameTimer() :
+		GameLevelWidget->HideGameTimer();
+}
+
+void ATantrumnHUD::SetMatchTimerSeconds(const float InMatchTimerSeconds) const
+{
+	check(GameLevelWidget)
+	GameLevelWidget->DisplayedMatchTime = FText::AsNumber(InMatchTimerSeconds, &FloatDisplayFormat);
 }
 
 void ATantrumnHUD::DisplayMatchStartCountDownTime(const float InMatchStartCountDownTime) const
 {
 	check(GameLevelWidget)
 	GameLevelWidget->InitiateMatchStartTimer(InMatchStartCountDownTime);
+}
+
+void ATantrumnHUD::UpdateUIOnFinish() const
+{
+	if (GameLevelWidget){ GameLevelWidget->UpdateOnFinish(); }
 }

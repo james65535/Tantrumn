@@ -6,7 +6,7 @@
 #include "GameFramework/PlayerState.h"
 #include "TantrumnPlayerState.generated.h"
 
-// Enum to track the current state of the game
+// Enum to track the current state of the player
 UENUM()
 enum class EPlayerGameState : uint8
 {
@@ -16,6 +16,7 @@ enum class EPlayerGameState : uint8
 	Playing		UMETA(DisplayName = "Playing"),
 	Finished	UMETA(DisplayName = "Finished"),
 };
+
 UCLASS()
 class TANTRUMN_API ATantrumnPlayerState : public APlayerState
 {
@@ -28,21 +29,19 @@ public:
 
 	UFUNCTION()
 	void SetCurrentState(const EPlayerGameState PlayerGameState);
-	
 
 	UFUNCTION(BlueprintPure)
 	bool IsWinner() const { return bIsWinner; }
 
 	void SetIsWinner(const bool IsWinner) { bIsWinner = IsWinner; }
-
+	
 private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentState)
 	EPlayerGameState CurrentState = EPlayerGameState::None;
 	UFUNCTION()
 	virtual void OnRep_CurrentState();
-
-	UPROPERTY(Replicated)
+	
 	bool bIsWinner = false;
 	
 };

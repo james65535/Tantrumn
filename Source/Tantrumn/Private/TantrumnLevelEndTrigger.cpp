@@ -4,33 +4,26 @@
 #include "TantrumnLevelEndTrigger.h"
 
 #include "TantrumnGameStateBase.h"
-#include "Components/BoxComponent.h"
-#include "Components/ShapeComponent.h"
-#include "Engine/BrushBuilder.h"
-#include "Engine/BrushShape.h"
 #include "Tantrumn/TantrumnCharacterBase.h"
-#include "Tantrumn/TantrumnGameModeBase.h"
-
-void ATantrumnLevelEndTrigger::BeginPlay()
-{
-	Super::BeginPlay();
-}
 
 ATantrumnLevelEndTrigger::ATantrumnLevelEndTrigger()
 {
 	OnActorBeginOverlap.AddDynamic(this, &ATantrumnLevelEndTrigger::OnOverlapBegin);
 }
 
+void ATantrumnLevelEndTrigger::BeginPlay()
+{
+	Super::BeginPlay();
+	TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>();
+}
+
 void ATantrumnLevelEndTrigger::OnOverlapBegin(AActor* OverlappedActor, AActor* OtherActor)
 {
 	if (HasAuthority())
 	{
-		if (ATantrumnGameStateBase* TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>())
+		if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(OtherActor))
 		{
-			if (ATantrumnCharacterBase* TantrumnCharacterBase = Cast<ATantrumnCharacterBase>(OtherActor))
-			{
-				TantrumnGameState->OnPlayerReachedEnd(TantrumnCharacterBase);
-			}
+			TantrumnGameState->OnPlayerReachedEnd(TantrumnCharacterBase);
 		}
 	}
 }

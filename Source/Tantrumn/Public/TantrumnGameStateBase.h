@@ -10,7 +10,6 @@ class ATantrumnPlayerState;
 class UTantrumnGameWidget;
 class ATantrumnCharacterBase;
 
-
 // ENUM to track the current state of the game
 UENUM(BlueprintType)
 enum class ETantrumnGameState : uint8
@@ -98,22 +97,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	float GetMatchStartTime() const { return MatchStartTime; }
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	float GetMatchDeltaTime() const { return FGenericPlatformTime::ToSeconds(FPlatformTime::Cycles())-MatchStartTime; }
-
-	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	void SetTimerValue(const float InVal) { CountDownStartTime = InVal;}
+	float GetMatchDeltaTime() const { return GetServerWorldTimeSeconds() - MatchStartTime; }
 	
 	FGameTypeUpdateDelegate OnGameTypeUpdateDelegate;
-
+	
 private:
 
 	/** Game Results */
-	UPROPERTY(VisibleAnywhere, ReplicatedUsing=OnRep_Results, Category = "Tantrumn States")
+	UPROPERTY(VisibleAnywhere, ReplicatedUsing=OnRep_ResultsUpdated, Category = "Tantrumn States")
 	TArray<FGameResult> Results;
 	UFUNCTION()
-	void OnRep_Results();
+	void OnRep_ResultsUpdated();
 	/** Can be called during and after play */
-	void UpdateResults(const ATantrumnCharacterBase* InTantrumnCharacter);
+	void PlayerRequestSubmitResults(const ATantrumnCharacterBase* InTantrumnCharacter);
 	/** Check if all results are in then let clients know the final results */
 	void TryFinaliseScoreBoard();
 	bool CheckAllResultsIn() const ;
@@ -133,13 +129,9 @@ private:
 	void OnRep_GameType() const;
 
 	/** Game Time Values */
-	/** Time Amount in Seconds Used for Game Countdowns */
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "Tantrumn States")
+	UPROPERTY(VisibleAnywhere, Category = "Tantrumn States")
 	float CountDownStartTime;
-	/** Time Amount in Seconds Used for Matches of a certain Play Length  */
-	UPROPERTY(VisibleAnywhere, Replicated, Category = "Tantrumn States")
-	float MatchTimeLength = 0.0f;
-
-	UPROPERTY(Replicated, VisibleAnywhere, Category = "Tantrumn States")
+	/** Server - Client Time Sync handled by Player Controllers */ 
+	UPROPERTY(VisibleAnywhere, Category = "Tantrumn States")
 	float MatchStartTime;
 };

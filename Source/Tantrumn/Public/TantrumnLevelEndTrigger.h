@@ -7,6 +7,7 @@
 #include "TantrumnLevelEndTrigger.generated.h"
 
 class ATantrumnGameModeBase;
+class ATantrumnGameStateBase;
 
 UCLASS(Blueprintable, BlueprintType)
 class TANTRUMN_API ATantrumnLevelEndTrigger : public ATriggerVolume
@@ -27,6 +28,9 @@ private:
 	UFUNCTION()
 	void OnOverlapBegin(class AActor* OverlappedActor, class AActor* OtherActor);
 
+	UPROPERTY()
 	ATantrumnGameModeBase* GameModeRef;
+	UPROPERTY()
+	ATantrumnGameStateBase* TantrumnGameState;
 	
 };

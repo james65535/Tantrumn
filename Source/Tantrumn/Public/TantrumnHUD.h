@@ -56,12 +56,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void DisplayUI() const {  BaseUIWidget->DisplayGameModeUI(); };
 	
-	// TODO Determine if reliable can be removed
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	void DisplayGameTime(const float InGameTimeDuration) const ;
+	void ToggleDisplayGameTime(const bool bIsDisplayed) const ;
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void SetMatchTimerSeconds(const float InMatchTimerSeconds) const ;
 
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void DisplayMatchStartCountDownTime(const float InMatchStartCountDownTime) const ;
+
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void UpdateUIOnFinish() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void DisplayResults(const TArray<FGameResult>& InResults) const;
@@ -77,8 +81,10 @@ private:
 
 	UPROPERTY()
 	ATantrumnPlayerController* TantrumnPlayerController;
+
+	/** Network latency affects precision of the float so it is better to trim the fractionals when displaying */
+	FNumberFormattingOptions FloatDisplayFormat;
 	
-	/** Funcs to Specify UI Elements */
 	/** Level Specific UI */
 	UPROPERTY(VisibleInstanceOnly, Category = "Tantrumn UI")
 	UTantrumnGameWidget* GameLevelWidget;

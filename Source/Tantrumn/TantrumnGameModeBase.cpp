@@ -112,10 +112,7 @@ void ATantrumnGameModeBase::StartGame()
 		UE_LOG(LogTemp, Warning, TEXT("This System does not have authority to start game"));
 		return;
 	}
-	ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>();
-	check(TantrumnGameState);
-	UE_LOG(LogTemp, Warning, TEXT("Gamemode entering playing state"));
-	TantrumnGameState->NM_MatchStart();
+
 	
 	/** Restore control to Players and reset Player State for Players and AI */
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -141,6 +138,9 @@ void ATantrumnGameModeBase::StartGame()
 			AIPlayerState->SetIsWinner(false);
 		}
 	}
+	ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>();
+	check(TantrumnGameState);
+	TantrumnGameState->NM_MatchStart();
 }
 
 bool ATantrumnGameModeBase::CheckAllPlayersStatus(const EPlayerGameState StateToCheck) const

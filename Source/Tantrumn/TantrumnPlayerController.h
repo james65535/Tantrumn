@@ -31,11 +31,7 @@ class TANTRUMN_API ATantrumnPlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
-
-	/** In Local MP it is needed to ensure the controller has receive the player in order to correctly set up the HUD */
-	// TODO test this
-	//virtual void ReceivedPlayer() override;
-
+	
 	/** Called from GameMode, only on Authority will get get these calls */
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
@@ -73,13 +69,12 @@ public:
 	 * @param InRequestedInputMode GameOnly / ShowCursor False  GameAndUI, UIOnly / Show Cursor True
 	 */
 	UFUNCTION(NetMulticast, Reliable, Category = "Tantrumn")
-	void SetControllerGameInputMode(const ETantrumnInputMode InRequestedInputMode);
+	void NM_SetControllerGameInputMode(const ETantrumnInputMode InRequestedInputMode);
 
 protected:
 	
 	/** Class overrides */
 	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaSeconds) override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
@@ -88,6 +83,12 @@ private:
 	ATantrumnGameStateBase* TantrumnGameState;
 	UPROPERTY()
 	ATantrumnPlayerState* TantrumnPlayerState;
+	
+	/** Values Used for Display Match Time to the Player */
+	FTimerHandle MatchClockDisplayTimerHandle;
+	const float MatchClockDisplayRateSeconds = 0.1f;
+	float CachedMatchStartTime = 0.0f;
+	void HUDDisplayGameTimeElapsedSeconds() const;
 	
 	/** Player HUD */
 	UPROPERTY(EditDefaultsOnly, Category = "Tantrumn UI")
@@ -104,8 +105,7 @@ private:
 	void RequestHideLevelMenu();
 
 	/** Run processes related to match start of play */
-	UFUNCTION()
-	void MatchPlayStart(const float InMatchStartTime);
+	void StartMatchForPlayer(const float InMatchStartTime);
 
 	/** Checks if player is allowed to input movement commands given current state of play */
 	bool CanProcessRequest() const;
@@ -157,8 +157,7 @@ private:
 	float BaseLookRightRate = 90.0f;
 
 	/**
-	 * Flick setup for throw action
-	 * Used to determine flick of axis
+	 * Flick setup for throw action.  Used to determine flick of axis
 	 * float LastDelta = 0.0f;
 	 */
 	float LastAxis = 0.0f;
