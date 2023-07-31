@@ -21,10 +21,27 @@ static TAutoConsoleVariable<bool> CVarDisplayLaunchInputDelta(
 	TEXT("Display Launch Input Delta"),
 	ECVF_Default);
 
+void ATantrumnPlayerController::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	/** Player HUD related Tasks */
+	if (!IsRunningDedicatedServer())
+	{
+// 		/** Load player info from save */
+// 		TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>();
+// 		if(TantrumnPlayerState)
+// 		{
+// 			TantrumnPlayerState->LoadSavedPlayerInfo();
+// 		} else {
+// UE_LOG(LogTemp, Warning, TEXT("did not load player info"));
+// 		}
+	}
+}
+
 void ATantrumnPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-
 	TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>();
 	check(TantrumnGameState);
 	
@@ -33,6 +50,7 @@ void ATantrumnPlayerController::BeginPlay()
 	{
 		/** Specify HUD Representation at start of play */
 		PlayerHUD = Cast<ATantrumnHUD>(GetHUD());
+
 		/** If Local game as listener or single player then Grab Gametype, otherwise use delegate to update on replication */
 		UpdateHUDWithGameUIElements(TantrumnGameState->GetGameType());
 		TantrumnGameState->OnGameTypeUpdateDelegate.AddUObject(this, &ATantrumnPlayerController::UpdateHUDWithGameUIElements);
@@ -135,6 +153,16 @@ bool ATantrumnPlayerController::CanProcessRequest() const
 	return false;
 }
 
+void ATantrumnPlayerController::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+}
+
+void ATantrumnPlayerController::InitPlayerState()
+{
+	Super::InitPlayerState();
+}
+
 void ATantrumnPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
@@ -154,10 +182,6 @@ void ATantrumnPlayerController::OnRetrySelected()
 
 void ATantrumnPlayerController::OnReadySelected()
 {
-	if (!TantrumnPlayerState)
-	{
-		TantrumnPlayerState = CastChecked<ATantrumnPlayerState>(PlayerState);
-	}
 	S_OnReadySelected();
 }
 
@@ -165,10 +189,7 @@ void ATantrumnPlayerController::S_OnReadySelected_Implementation()
 {
 	if (GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>())
 	{
-		if (!TantrumnPlayerState)
-		{
-			TantrumnPlayerState = Cast<ATantrumnPlayerState>(PlayerState);
-		}
+		checkfSlow(TantrumnPlayerState, "Player Controller attempted to access tantrumn player state to set ready but it was null");
 		TantrumnPlayerState->SetCurrentState(EPlayerGameState::Ready);
 	}
 }
@@ -182,6 +203,13 @@ void ATantrumnPlayerController::UpdateHUDWithGameUIElements(ETantrumnGameType In
 {
 	checkfSlow(GameElementsRegistry, "PlayerController: Verify Controller Blueprint has a UI Elements registry set");
 	PlayerHUD->SetGameUIAssets(*GameElementsRegistry->GameTypeUIMapping.Find(InGameType));
+}
+
+void ATantrumnPlayerController::SetPlayerName(const FString& InPlayerName)
+{
+	SetName(InPlayerName);
+	checkfSlow(TantrumnPlayerState, "Controller tried to set player name but tantrumn player state was null");
+	TantrumnPlayerState->SavePlayerInfo();
 }
 
 void ATantrumnPlayerController::RequestDisplayLevelMenu()
@@ -244,6 +272,27 @@ void ATantrumnPlayerController::RequestDisplayFinalResults() const
 	}
 }
 
+void ATantrumnPlayerController::ConnectToServer(FString InServerAddress)
+{
+	if (InServerAddress.IsEmpty()) { return; }
+
+	FURL URL;
+	URL.Host = "127.0.0.1"; //InServerAddress;
+	URL.Port = 7779;
+	URL.Map = "/Game/Tantrumn/Maps/Tantrumn_VerticalRace";
+	const FString NameOption = "Name=" + TantrumnPlayerState->GetPlayerName();
+	URL.AddOption(*NameOption);
+	UE_LOG(LogTemp, Warning, TEXT("Travelling with URL: %s"), *URL.ToString());
+
+	if (URL.Valid)
+	{
+		ClientTravel(URL.ToString(), TRAVEL_Absolute, false);
+	} else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Client cannot travel as URL is invalid"));
+	}
+}
+
 void ATantrumnPlayerController::C_ResetPlayer_Implementation()
 {
 	check(PlayerHUD);
@@ -263,15 +312,15 @@ void ATantrumnPlayerController::S_RestartLevel_Implementation()
 
 void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	// Clear Delegates
+	TantrumnGameState->OnStartMatchDelegate.RemoveAll(this);
+	
 	// Tear down Enhanced Input subsystem for mappings
 	if (const ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* InputSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 		{
-			if (!GameInputMapping.IsNull())
-			{
-				InputSystem->ClearAllMappings();
-			}
+			InputSystem->ClearAllMappings();
 		}
 	}
 }

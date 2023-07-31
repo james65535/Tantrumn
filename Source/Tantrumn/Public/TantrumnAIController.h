@@ -16,6 +16,13 @@ class TANTRUMN_API ATantrumnAIController : public AAIController
 
 public:
 
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
+
+private:
+
+	// Delegate for Game State broadcast
+	void SetIsPlaying(const float InMatchStartTime);
 };

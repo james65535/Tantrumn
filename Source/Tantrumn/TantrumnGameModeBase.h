@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "TantrumnGameStateBase.h"
+#include "TantrumnPlayerState.h"
 #include "GameFramework/GameModeBase.h"
 #include "TantrumnGameModeBase.generated.h"
 
@@ -30,6 +31,10 @@ public:
 	/** Check if Game is In Start Menu */
 	UFUNCTION(BlueprintPure, Category = "Tantrumn")
 	bool IsInStartMenu() const { return bToggleInitialMainMenu; }
+
+	/** Method for Player's to notify they are ready to play */
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void PlayerNotifyIsReady(ATantrumnPlayerState* InPlayerState );
 
 	void RestartGame();
 

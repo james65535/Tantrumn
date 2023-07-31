@@ -8,7 +8,6 @@
 #include "TantrumnCharMovementComponent.h"
 #include "ThrowableActor.h"
 #include "DrawDebugHelpers.h"
-#include "TantrumnAIController.h"
 #include "TantrumnPlayerState.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Net/UnrealNetwork.h"
@@ -66,7 +65,7 @@ void ATantrumnCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 	SharedParams. Condition = COND_SkipOwner;
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, CharacterThrowState, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, bIsStunned, SharedParams);
-	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, bIsBeingRescued, SharedParams);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, bBeingRescued, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, LastGroundPosition, SharedParams);
 }
 
@@ -92,7 +91,7 @@ void ATantrumnCharacterBase::Tick(float DeltaTime)
 		return;
 	}
 	
-	if (IsBeingRescued())
+	if (IsBeingRescued() && HasAuthority() && GetLocalRole() != ROLE_AutonomousProxy)
 	{
 		UpdateRescue(DeltaTime);
 		return;
@@ -100,16 +99,16 @@ void ATantrumnCharacterBase::Tick(float DeltaTime)
 
 	// TODO review this
 	// Exit before processing tick if this is a replica on a remote system
-	if (!IsLocallyControlled())
-	{
-		return;
-	}
+	// if (!IsLocallyControlled())
+	// {
+	// 	return;
+	// }
 
 	// Check for stun as it will impact character movement
-	if (TantrumnCharMoveComp->IsStunned())
-	{
-		return;
-	}
+	// if (TantrumnCharMoveComp->IsStunned())
+	// {
+	// 	return;
+	// }
 
 	// Check for effect status
 	if(bIsUnderEffect)
@@ -158,11 +157,11 @@ void ATantrumnCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerIn
 
 void ATantrumnCharacterBase::SphereCastActorTransform()
 {
-	FVector StartPos = GetActorLocation();
-	FVector EndPos = StartPos + (GetActorForwardVector() * 1000.0f);
+	const FVector StartPos = GetActorLocation();
+	const FVector EndPos = StartPos + (GetActorForwardVector() * 1000.0f);
 
 	// Sphere trace
-	EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ?
+	const EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ?
 		EDrawDebugTrace::ForOneFrame : EDrawDebugTrace::None;
 	FHitResult HitResult;
 	UKismetSystemLibrary::SphereTraceSingle(
@@ -181,8 +180,8 @@ void ATantrumnCharacterBase::SphereCastActorTransform()
 
 void ATantrumnCharacterBase::LineCastActorTransform()
 {
-	FVector StartPos = GetActorLocation();
-	FVector EndPos = StartPos + (GetActorForwardVector() * 1000.0f);
+	const FVector StartPos = GetActorLocation();
+	const FVector EndPos = StartPos + (GetActorForwardVector() * 1000.0f);
 	FHitResult HitResult;
 	GetWorld() ? GetWorld()->LineTraceSingleByChannel(
 		HitResult,
@@ -307,25 +306,27 @@ void ATantrumnCharacterBase::SphereCastPlayerView()
 
 void ATantrumnCharacterBase::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode)
 {
-	if (HasAuthority())
+	if (!HasAuthority())
 	{
-		if (!IsBeingRescued() &&
-			(PrevMovementMode == MOVE_Walking && TantrumnCharMoveComp->MovementMode == MOVE_Falling))
+		return;
+	}
+	
+	if (!IsBeingRescued() &&
+		(PrevMovementMode == MOVE_Walking && TantrumnCharMoveComp->MovementMode == MOVE_Falling))
+	{
+		LastGroundPosition =
+			GetActorLocation() +(GetActorForwardVector() * -100.0f) +(GetActorUpVector() * 100.0f);
+	
+		// Ensure LastGroundPosition is a valid static location and not something which moves
+		FVector ValidLoc;
+		if(IsLandingValid(LastGroundPosition,ValidLoc,200.0f, 3))
+		{
+			LastGroundPosition = ValidLoc;
+		}
+		else
 		{
 			LastGroundPosition =
-				GetActorLocation() +(GetActorForwardVector() * -100.0f) +(GetActorUpVector() * 100.0f);
-			
-			// Ensure LastGroundPosition is a valid static location and not something which moves
-			FVector ValidLoc;
-			if(IsLandingValid(LastGroundPosition,ValidLoc,200.0f, 3))
-			{
-				LastGroundPosition = ValidLoc;
-			}
-			else
-			{
-				LastGroundPosition =
-					GetActorLocation() +(GetActorForwardVector() * -600.0f) +(GetActorUpVector() * 100.0f);	
-			}
+				GetActorLocation() +(GetActorForwardVector() * -600.0f) +(GetActorUpVector() * 100.0f);	
 		}
 	}
 
@@ -456,7 +457,7 @@ void ATantrumnCharacterBase::UpdateRescue(float DeltaTime)
 {
 	CurrentRescueTime += DeltaTime;
 	const float Alpha = FMath::Clamp(CurrentRescueTime / TimeToRescuePlayer, 0.0f, 1.0f);
-	const FVector NewPlayerLocation = FMath::Lerp(FallOutOfWorldPosition, LastGroundPosition, Alpha);
+	const FVector NewPlayerLocation = UKismetMathLibrary::VLerp(FallOutOfWorldPosition, LastGroundPosition, Alpha);
 	SetActorLocation(NewPlayerLocation);
 
 	if (HasAuthority() && Alpha >= 1.0f)
@@ -468,8 +469,9 @@ void ATantrumnCharacterBase::UpdateRescue(float DeltaTime)
 void ATantrumnCharacterBase::StartRescue()
 {
 	// This will be broadcasted, don't want to potentially start moving to a bad location
-	bIsBeingRescued = true;
 	FallOutOfWorldPosition = GetActorLocation();
+	bBeingRescued = true;
+	OnBeingRescuedEvent.Broadcast();
 	CurrentRescueTime = 0.0f;
 	TantrumnCharMoveComp->Deactivate();
 	SetActorEnableCollision(false);
@@ -477,7 +479,7 @@ void ATantrumnCharacterBase::StartRescue()
 
 void ATantrumnCharacterBase::OnRep_IsBeingRescued()
 {
-	if (bIsBeingRescued)
+	if (bBeingRescued)
 	{
 		StartRescue();
 	}
@@ -490,7 +492,7 @@ void ATantrumnCharacterBase::OnRep_IsBeingRescued()
 void ATantrumnCharacterBase::EndRescue()
 {
 	// Authority will dictate when this is over
-	bIsBeingRescued = false;
+	bBeingRescued = false;
 	TantrumnCharMoveComp->Activate();
 	SetActorEnableCollision(true);
 	CurrentRescueTime = 0.0f;
@@ -946,7 +948,7 @@ bool ATantrumnCharacterBase::IsLandingValid(FVector StartLoc, FVector& ValidLoc,
 
 	// Whether to show visual trace for debugging
 	EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ?
-		EDrawDebugTrace::ForOneFrame : EDrawDebugTrace::None;
+		EDrawDebugTrace::ForDuration : EDrawDebugTrace::None;
 
 	// Perform the series of traces
 	for (uint8 i = 0; i < NumTraces; i++)
@@ -977,7 +979,10 @@ bool ATantrumnCharacterBase::IsLandingValid(FVector StartLoc, FVector& ValidLoc,
 			TArray<AActor*>(),
 			DebugTrace,
 			HitResult,
-			true);
+			true,
+			FLinearColor::Red,
+			FLinearColor::Green,
+			10.0f);
 
 		// Got one, time to go to the pub
 		if (HitResult.IsValidBlockingHit())

@@ -25,15 +25,12 @@ UNetTimeInterpToMovementComponent::UNetTimeInterpToMovementComponent()
 	CurrentDirection = 1.0f;
 	CurrentTime = 0.0f;
 	bStopped = false;
-	bPointsFinalized = false;
-
 }
 
 void UNetTimeInterpToMovementComponent::BeginPlay()
 {
 	GameState = CastChecked<ATantrumnGameStateBase>(GetWorld()->GetGameState());
 	CurrentTime = GameState->GetServerWorldTimeSeconds(); // 0.0f
-	UE_LOG(LogTemp, Warning, TEXT("Got start time: %f"), NetworkStartTimeSeconds);
 	Super::BeginPlay();
 
 	if (GetOwnerRole() == ROLE_Authority)
@@ -47,90 +44,19 @@ void UNetTimeInterpToMovementComponent::BeginPlay()
 	MARK_PROPERTY_DIRTY_FROM_NAME(UNetTimeInterpToMovementComponent, CurrentTime, this);
 	MARK_PROPERTY_DIRTY_FROM_NAME(UNetTimeInterpToMovementComponent, CurrentDirection, this);
 }
+
 void UNetTimeInterpToMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
 	FDoRepLifetimeParams PushedParams;
 	PushedParams.bIsPushBased = true;
-	PushedParams.RepNotifyCondition = REPNOTIFY_Always;
 	DOREPLIFETIME_WITH_PARAMS_FAST(UNetTimeInterpToMovementComponent, CurrentTime, PushedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(UNetTimeInterpToMovementComponent, CurrentDirection, PushedParams);
 }
 
-// void UNetTimeInterpToMovementComponent::HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta)
-// {
-// 	UE_LOG(LogTemp, Warning, TEXT("handleimpact, current time: %f"), CurrentTime);
-// 	if( bPauseOnImpact == false )
-// 	{
-// 		switch(BehaviourType )
-// 		{
-// 		case EInterpToBehaviourType::OneShot:
-// 			OnInterpToStop.Broadcast(Hit, TimeSlice);
-// 			bStopped = true;
-// 			StopSimulating(Hit);
-// 			return;
-// 		case EInterpToBehaviourType::OneShot_Reverse:
-// 			if( CurrentDirection == -1.0f)
-// 			{
-// 				OnInterpToStop.Broadcast(Hit, TimeSlice);
-// 				bStopped = true;
-// 				StopSimulating(Hit);
-// 				return;
-// 			}
-// 			else
-// 			{
-// 				ReverseDirection(Hit, TimeSlice, true);
-// 			}
-// 			break;
-// 		case EInterpToBehaviourType::Loop_Reset:
-// 			{
-// 				CurrentTime = GameState->GetServerWorldTimeSeconds(); // TODO 0.0f
-// 				OnResetDelegate.Broadcast(Hit, CurrentTime);
-// 			}
-// 			break;
-// 		default:
-// 			ReverseDirection(Hit, TimeSlice, true);
-// 			break;
-// 		}		
-// 	}
-// 	else
-// 	{
-// 		if( bIsWaiting == false )
-// 		{
-// 			OnWaitBeginDelegate.Broadcast(Hit, TimeSlice);
-// 			bIsWaiting = true;
-// 		}
-// 	}
-// }
-
-// void UNetTimeInterpToMovementComponent::ReverseDirection(const FHitResult& Hit, float Time, bool InBroadcastEvent)
-// {
-// 	// Invert the direction we are moving 
-// 	if (InBroadcastEvent == true)
-// 	{
-// 		OnInterpToReverse.Broadcast(Hit, Time);
-// 	}
-// 	// flip dir
-// 	CurrentDirection = -CurrentDirection;
-// 	MARK_PROPERTY_DIRTY_FROM_NAME(UNetTimeInterpToMovementComponent, CurrentDirection, this);
-// 	MARK_PROPERTY_DIRTY_FROM_NAME(UNetTimeInterpToMovementComponent, CurrentTime, this);
-// 	UE_LOG(LogTemp, Warning, TEXT("Platform reverse direction"));
-// }
-
-// void UNetTimeInterpToMovementComponent::RestartMovement(float InitialDirection)
-// {
-// 	CurrentDirection = InitialDirection;
-// 	CurrentTime = 0.0f;
-// 	bIsWaiting = false;
-// 	bStopped = false;
-// 	MARK_PROPERTY_DIRTY_FROM_NAME(UNetTimeInterpToMovementComponent, CurrentDirection, this);
-// 	MARK_PROPERTY_DIRTY_FROM_NAME(UNetTimeInterpToMovementComponent, CurrentTime, this);
-// }
-
-void UNetTimeInterpToMovementComponent::SlowTick()
+void UNetTimeInterpToMovementComponent::SlowTick() const
 {
-	UE_LOG(LogTemp, Warning, TEXT("SlowTick, current time: %f"), CurrentTime);
 	MARK_PROPERTY_DIRTY_FROM_NAME(UNetTimeInterpToMovementComponent, CurrentTime, this);
 	MARK_PROPERTY_DIRTY_FROM_NAME(UNetTimeInterpToMovementComponent, CurrentDirection, this);
 }
@@ -138,10 +64,6 @@ void UNetTimeInterpToMovementComponent::SlowTick()
 void UNetTimeInterpToMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                                       FActorComponentTickFunction* ThisTickFunction)
 {
-	// if (GetOwnerRole() != ROLE_Authority)
-	// {
-	// 	return;
-	// }
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_InterpToMovementComponent_TickComponent);
 	// skip if don't want component updated when not rendered or updated component can't move
 	if (!UpdatedComponent || ShouldSkipUpdate(DeltaTime))

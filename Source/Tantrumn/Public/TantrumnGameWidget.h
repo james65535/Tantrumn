@@ -80,4 +80,7 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
 	void DisplayGameModeUI();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
+	void ToggleGameMenu(bool bVisible);
 };

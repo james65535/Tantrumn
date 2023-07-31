@@ -7,9 +7,7 @@
 #include "NetTimeInterpToMovementComponent.generated.h"
 
 class ATantrumnGameStateBase;
-/**
- * 
- */
+
 UCLASS(ClassGroup=Movement, meta=(BlueprintSpawnableComponent),HideCategories=Velocity)
 class TANTRUMN_API UNetTimeInterpToMovementComponent : public UInterpToMovementComponent
 {
@@ -23,38 +21,25 @@ public:
 	virtual void BeginPlay() override;
 
 protected:
-
-	//virtual void HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta) override;
-	//void ReverseDirection(const FHitResult& Hit, float Time, bool InBroadcastEvent);
-	//void RestartMovement(float InitialDirection);
-
-	UPROPERTY(ReplicatedUsing=OnRep_CurrentTime)
-	float CurrentTime;
-	UPROPERTY(ReplicatedUsing=OnRep_CurrentDirection)
-	float CurrentDirection;
-
-	UFUNCTION()
-	void OnRep_CurrentTime() { UE_LOG(LogTemp, Warning, TEXT("OnRepCurrentTime: %f"), CurrentTime); }
-	UFUNCTION()
-	void OnRep_CurrentDirection() { UE_LOG(LogTemp, Warning, TEXT("OnRepCurrentTime: %f"), CurrentTime); }
 	
+	UPROPERTY(Replicated)
+	float CurrentTime;
+	UPROPERTY(Replicated)
+	float CurrentDirection;
 
 private:
 
 	FTimerHandle SlowTickTimerHandle;
 	float SlowTickerFrequencySeconds = 2.0f;
 
+	/** Used to casually push replicate location and time on spline */
 	UFUNCTION()
-	void SlowTick();
-	
+	void SlowTick() const;
+
+	/** Used for GetServerWorldTime for consistent replication */
 	UPROPERTY()
 	ATantrumnGameStateBase* GameState;
 	float NetworkStartTimeSeconds;
 	float NetworkDeltaTimeSeconds;
-
-	/** Shadows Parent Class Private vars */
-	float TotalDistance;
-	FVector StartLocation;
-	bool bPointsFinalized;
 	
 };

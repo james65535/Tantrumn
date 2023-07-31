@@ -36,9 +36,6 @@ void ATantrumnGameStateBase::SetGameState(const ETantrumnGameState InGameState)
 
 void ATantrumnGameStateBase::OnRep_GameState() const
 {
-	// If Replicated with COND_SkipOwner then Authority will need to run this manually
-	UE_LOG(LogTemp, Warning, TEXT("OldGameState: %s"), *UEnum::GetDisplayValueAsText(OldTantrumnGameState).ToString());
-	UE_LOG(LogTemp, Warning, TEXT("TantrumnGameState: %s"), *UEnum::GetDisplayValueAsText(TantrumnGameState).ToString());
 }
 
 void ATantrumnGameStateBase::SetGameType(const ETantrumnGameType InGameType)
@@ -82,7 +79,7 @@ void ATantrumnGameStateBase::PlayerRequestSubmitResults(const ATantrumnCharacter
 			
 			FGameResult Result;
 			Result.Time = GetServerWorldTimeSeconds() - MatchStartTime;
-			Result.Name = InTantrumnCharacter->GetName();
+			Result.Name = TantrumnPlayerState->GetPlayerName();
 			const bool IsWinner = Results.Num() == 0;
 			TantrumnPlayerState->SetIsWinner(IsWinner);
 			Result.bIsWinner = IsWinner;

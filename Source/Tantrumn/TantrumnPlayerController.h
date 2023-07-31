@@ -31,10 +31,15 @@ class TANTRUMN_API ATantrumnPlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
+	virtual void OnRep_PlayerState() override;
+	virtual void InitPlayerState() override;
 	
 	/** Called from GameMode, only on Authority will get get these calls */
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
+
+	UPROPERTY()
+	ATantrumnPlayerState* TantrumnPlayerState;
 
 	/** Called by Game Widget */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
@@ -52,28 +57,34 @@ public:
 	void C_ResetPlayer();
 	UFUNCTION(Client, Reliable, Category = "Tantrumn")
 	void C_StartGameCountDown(const float InCountDownDuration);
-
-	UFUNCTION()
+	
 	void FinishedMatch();
 	
-	/* Get the final results and call hud to display */
-	UFUNCTION()
+	/** Get the final results and call hud to display */
 	void RequestDisplayFinalResults() const;
 	
-	/* Called by Server Authority to restart level */
+	/** Called by Server Authority to restart level */
 	UFUNCTION(Server, Reliable, Category = "Tantrumn")
 	void S_RestartLevel();
 
-	/*
-	 * Set the controller inputmode and cursor show
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void ConnectToServer(FString InServerAddress);
+
+	/**
+	 * Set the controller input mode and cursor show
 	 * @param InRequestedInputMode GameOnly / ShowCursor False  GameAndUI, UIOnly / Show Cursor True
 	 */
 	UFUNCTION(NetMulticast, Reliable, Category = "Tantrumn")
 	void NM_SetControllerGameInputMode(const ETantrumnInputMode InRequestedInputMode);
 
+	/** UFUNCTION Wrapper for parent class SetName method */
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void SetPlayerName(const FString& InPlayerName);
+
 protected:
 	
 	/** Class overrides */
+	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
@@ -81,8 +92,7 @@ private:
 	
 	UPROPERTY()
 	ATantrumnGameStateBase* TantrumnGameState;
-	UPROPERTY()
-	ATantrumnPlayerState* TantrumnPlayerState;
+
 	
 	/** Values Used for Display Match Time to the Player */
 	FTimerHandle MatchClockDisplayTimerHandle;
@@ -104,7 +114,7 @@ private:
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void RequestHideLevelMenu();
 
-	/** Run processes related to match start of play */
+	/** Delegate related to Game State match start of play */
 	void StartMatchForPlayer(const float InMatchStartTime);
 
 	/** Checks if player is allowed to input movement commands given current state of play */

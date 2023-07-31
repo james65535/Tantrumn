@@ -40,38 +40,29 @@ void ATantrumnGameModeBase::BeginPlay()
 	}
 }
 
+void ATantrumnGameModeBase::PlayerNotifyIsReady(ATantrumnPlayerState* InPlayerState)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Game Mode was notified Player %s is ready"), *InPlayerState->GetPlayerName());
+	if(CheckAllPlayersStatus(EPlayerGameState::Ready))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("All players are ready, attempting to start game"));
+		AttemptStartGame();
+	}
+}
+
 void ATantrumnGameModeBase::AttemptStartGame()
 {
-	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
+	/** Run Countdown timer to start of match */
+	if (GameCountDownDuration > SMALL_NUMBER)
 	{
-		TantrumnGameState->SetGameType(DesiredGameType);
-		TantrumnGameState->SetGameState(ETantrumnGameState::Waiting);
-	}
-
-	if (CheckAllPlayersStatus(EPlayerGameState::Ready))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("GameMode: %s - All Players Ready"), *GetName());
-		// This needs to be replicated, call a function on game instance and replicate
-		if (GameCountDownDuration > SMALL_NUMBER)
-		{
-			GetWorld()->GetTimerManager().SetTimer(DelayStartTimerHandle,
-				this, &ATantrumnGameModeBase::DisplayCountDown,
-				DelayStartDuration,
-				false);
-		}
-		else
-		{
-			StartGame();
-		}
-	} else
-	{
-		// TODO Get rid of this timer and just do a check for final ready
-		UE_LOG(LogTemp, Warning, TEXT("GameMode: %s - Not all players ready"), *GetName());
-		GetWorld()->GetTimerManager().SetTimer(
-			MatchTryStartTimerHandle,
-			this, &ATantrumnGameModeBase::AttemptStartGame,
-			MatchTryStartWaitDuration,
+		GetWorld()->GetTimerManager().SetTimer(DelayStartTimerHandle,
+			this, &ATantrumnGameModeBase::DisplayCountDown,
+			DelayStartDuration,
 			false);
+	}
+	else
+	{
+		StartGame();
 	}
 }
 
@@ -104,6 +95,8 @@ void ATantrumnGameModeBase::DisplayCountDown()
 		NonSpectatingPlayer->C_StartGameCountDown(GameCountDownDuration);
 	}
 }
+
+
 
 void ATantrumnGameModeBase::StartGame()
 {
@@ -145,6 +138,7 @@ void ATantrumnGameModeBase::StartGame()
 
 bool ATantrumnGameModeBase::CheckAllPlayersStatus(const EPlayerGameState StateToCheck) const
 {
+	uint32 Count = 0;
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		if(const ATantrumnPlayerState* PlayerState =
@@ -155,8 +149,10 @@ bool ATantrumnGameModeBase::CheckAllPlayersStatus(const EPlayerGameState StateTo
 				UE_LOG(LogTemp, Warning, TEXT("PlayerID: %i did not match requested state"), PlayerState->GetPlayerId())
 				return false;
 			}
+			Count++;
 		}
 	}
+	if (Count <= 0) { return false; }
 	return true;
 }
 
@@ -174,9 +170,9 @@ void ATantrumnGameModeBase::RestartPlayer(AController* NewPlayer)
 			PlayerState->SetCurrentState(EPlayerGameState::Waiting);
 		}
 	}
-
-	AttemptStartGame();
 }
+
+
 
 void ATantrumnGameModeBase::RestartGame()
 {

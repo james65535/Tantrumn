@@ -52,7 +52,7 @@ struct FGameResult
 /** Notify listeners such as player controller that game type has changed */
 DECLARE_MULTICAST_DELEGATE_OneParam(FGameTypeUpdateDelegate, ETantrumnGameType);
 /** Notify listeners match has started with the match start time */
-DECLARE_MULTICAST_DELEGATE_OneParam(FStartMatch, float);
+DECLARE_MULTICAST_DELEGATE_OneParam(FStartMatch, const float);
 
 /*
  * Inherits from Actor so can replicate data
