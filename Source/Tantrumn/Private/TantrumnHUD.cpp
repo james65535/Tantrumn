@@ -98,7 +98,7 @@ void ATantrumnHUD::ConfirmGameUserSettings(bool bOverrideCommandLine)
 
 void ATantrumnHUD::SetGameUIAssets(const TSoftObjectPtr<UUIElementsAsset> InGameUIElementsAssets)
 {
-	checkfSlow(InGameUIElementsAsset, "PlayerHUD: Received Null UI Element Assets Soft Ptr");
+	checkfSlow(InGameUIElementsAssets, "PlayerHUD: Received Null UI Element Assets Soft Ptr");
 	const UUIElementsAsset* UIElementAssets = InGameUIElementsAssets.LoadSynchronous();
 	checkfSlow(UIElementAssets, "PlayerHUD: Could not load UI Element Assets");
 

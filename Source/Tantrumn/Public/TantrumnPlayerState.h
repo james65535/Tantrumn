@@ -28,7 +28,7 @@ class TANTRUMN_API ATantrumnPlayerState : public APlayerState
 
 public:
 
-virtual void BeginPlay() override;
+	virtual void BeginPlay() override;
 	UFUNCTION(BlueprintPure, Category = "Tantrumn")
 	EPlayerGameState GetCurrentState() const { return CurrentState; }
 
@@ -42,10 +42,10 @@ virtual void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn Save Info")
 	void SavePlayerInfo();
-	UFUNCTION(BlueprintCallable, Category = "Tantrumn Save Info")
+	UFUNCTION(Client, Reliable, BlueprintCallable, Category = "Tantrumn Save Info")
 	void LoadSavedPlayerInfo();
 	UPROPERTY(BlueprintAssignable, Category = "Tantrumn Save Info")
-	FOnSaveGameUpdate OnSaveGameUpdate;
+	FOnSaveGameUpdate OnSaveGameLoad;
 	
 private:
 
@@ -53,6 +53,8 @@ private:
 	EPlayerGameState CurrentState = EPlayerGameState::None;
 	UFUNCTION()
 	virtual void OnRep_CurrentState();
+
+	virtual void OnRep_PlayerName() override;
 
 	/** Save and Load Delegates */
 	void SavePlayerDelegate(const FString& SlotName, const int32 UserIndex, bool bSuccess);

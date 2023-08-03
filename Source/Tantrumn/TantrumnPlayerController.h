@@ -25,21 +25,26 @@ enum class ETantrumnInputMode : uint8
 	UIOnly		UMETA(DisplayName = "UI With Cursor"),
 };
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerStateReceived);
+
 UCLASS()
 class TANTRUMN_API ATantrumnPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
 public:
-	virtual void OnRep_PlayerState() override;
-	virtual void InitPlayerState() override;
-	
+
 	/** Called from GameMode, only on Authority will get get these calls */
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
 
 	UPROPERTY()
 	ATantrumnPlayerState* TantrumnPlayerState;
+	UPROPERTY(BlueprintAssignable, Category = "Tantrumn")
+	FOnPlayerStateReceived OnPlayerStateReceived;
+	void SetTantrumnPlayerState(ATantrumnPlayerState* InPlayerState) { TantrumnPlayerState = InPlayerState; }
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	ATantrumnPlayerState* GetTantrumnPlayerState() const { return TantrumnPlayerState; }
 
 	/** Called by Game Widget */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
@@ -68,7 +73,7 @@ public:
 	void S_RestartLevel();
 
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	void ConnectToServer(FString InServerAddress);
+	void ConnectToServer(const FString InServerAddress);
 
 	/**
 	 * Set the controller input mode and cursor show
@@ -84,7 +89,6 @@ public:
 protected:
 	
 	/** Class overrides */
-	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 

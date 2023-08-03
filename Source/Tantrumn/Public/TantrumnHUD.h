@@ -21,10 +21,11 @@ class TANTRUMN_API ATantrumnHUD : public AHUD
 	GENERATED_BODY()
 
 protected:
+
 	virtual void BeginPlay() override;
 
 public:
-
+	
 	/** Graphics Menu */
 	/**
 	 * Checks for available Screen Resolutions
@@ -52,7 +53,7 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
 	void SetGameUIAssets(const TSoftObjectPtr<UUIElementsAsset> InGameUIElementsAssets);
-
+	
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void DisplayUI() const {  BaseUIWidget->DisplayGameModeUI(); };
 	

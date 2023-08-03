@@ -10,6 +10,7 @@
 #include "TantrumnHUD.h"
 #include "TantrumnPlayerState.h"
 #include "TantrumnInputConfigRegistry.h"
+#include "UIElementsAsset.h"
 #include "EnhancedInput/Public/EnhancedInputComponent.h"
 #include "EnhancedInput//Public/EnhancedInputSubsystems.h"
 #include "EnhancedInput/Public/InputActionValue.h"
@@ -20,24 +21,6 @@ static TAutoConsoleVariable<bool> CVarDisplayLaunchInputDelta(
 	false,
 	TEXT("Display Launch Input Delta"),
 	ECVF_Default);
-
-void ATantrumnPlayerController::PostInitializeComponents()
-{
-	Super::PostInitializeComponents();
-
-	/** Player HUD related Tasks */
-	if (!IsRunningDedicatedServer())
-	{
-// 		/** Load player info from save */
-// 		TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>();
-// 		if(TantrumnPlayerState)
-// 		{
-// 			TantrumnPlayerState->LoadSavedPlayerInfo();
-// 		} else {
-// UE_LOG(LogTemp, Warning, TEXT("did not load player info"));
-// 		}
-	}
-}
 
 void ATantrumnPlayerController::BeginPlay()
 {
@@ -153,16 +136,6 @@ bool ATantrumnPlayerController::CanProcessRequest() const
 	return false;
 }
 
-void ATantrumnPlayerController::OnRep_PlayerState()
-{
-	Super::OnRep_PlayerState();
-}
-
-void ATantrumnPlayerController::InitPlayerState()
-{
-	Super::InitPlayerState();
-}
-
 void ATantrumnPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
@@ -202,7 +175,9 @@ void ATantrumnPlayerController::C_StartGameCountDown_Implementation(const float 
 void ATantrumnPlayerController::UpdateHUDWithGameUIElements(ETantrumnGameType InGameType)
 {
 	checkfSlow(GameElementsRegistry, "PlayerController: Verify Controller Blueprint has a UI Elements registry set");
-	PlayerHUD->SetGameUIAssets(*GameElementsRegistry->GameTypeUIMapping.Find(InGameType));
+	if (InGameType == ETantrumnGameType::None) { return; }
+	
+	PlayerHUD->SetGameUIAssets(GameElementsRegistry->GameTypeUIMapping.Find(InGameType)->LoadSynchronous());
 }
 
 void ATantrumnPlayerController::SetPlayerName(const FString& InPlayerName)
@@ -261,6 +236,8 @@ void ATantrumnPlayerController::FinishedMatch()
 		TantrumnPlayerState->SetCurrentState(EPlayerGameState::Finished);
 		SetInputContext(MenuInputMapping);
 		NM_SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
+		PlayerHUD->DisplayResults(TantrumnGameState->GetResults());
+		PlayerHUD->ToggleDisplayGameTime(false);
 	}
 }
 
@@ -272,25 +249,10 @@ void ATantrumnPlayerController::RequestDisplayFinalResults() const
 	}
 }
 
-void ATantrumnPlayerController::ConnectToServer(FString InServerAddress)
+void ATantrumnPlayerController::ConnectToServer(const FString InServerAddress)
 {
 	if (InServerAddress.IsEmpty()) { return; }
-
-	FURL URL;
-	URL.Host = "127.0.0.1"; //InServerAddress;
-	URL.Port = 7779;
-	URL.Map = "/Game/Tantrumn/Maps/Tantrumn_VerticalRace";
-	const FString NameOption = "Name=" + TantrumnPlayerState->GetPlayerName();
-	URL.AddOption(*NameOption);
-	UE_LOG(LogTemp, Warning, TEXT("Travelling with URL: %s"), *URL.ToString());
-
-	if (URL.Valid)
-	{
-		ClientTravel(URL.ToString(), TRAVEL_Absolute, false);
-	} else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Client cannot travel as URL is invalid"));
-	}
+	ClientTravel(InServerAddress, TRAVEL_Absolute, false);
 }
 
 void ATantrumnPlayerController::C_ResetPlayer_Implementation()

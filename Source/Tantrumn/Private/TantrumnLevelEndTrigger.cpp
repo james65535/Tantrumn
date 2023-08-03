@@ -8,13 +8,17 @@
 
 ATantrumnLevelEndTrigger::ATantrumnLevelEndTrigger()
 {
-	OnActorBeginOverlap.AddDynamic(this, &ATantrumnLevelEndTrigger::OnOverlapBegin);
+	//OnActorBeginOverlap.AddDynamic(this, &ATantrumnLevelEndTrigger::OnOverlapBegin);
 }
 
 void ATantrumnLevelEndTrigger::BeginPlay()
 {
 	Super::BeginPlay();
 	TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>();
+	if(TantrumnGameState)
+	{
+		OnActorBeginOverlap.AddDynamic(this, &ATantrumnLevelEndTrigger::OnOverlapBegin);	
+	}
 }
 
 void ATantrumnLevelEndTrigger::OnOverlapBegin(AActor* OverlappedActor, AActor* OtherActor)
@@ -27,7 +31,3 @@ void ATantrumnLevelEndTrigger::OnOverlapBegin(AActor* OverlappedActor, AActor* O
 		}
 	}
 }
-
-
-
-

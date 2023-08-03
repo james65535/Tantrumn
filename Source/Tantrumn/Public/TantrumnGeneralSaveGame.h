@@ -21,7 +21,7 @@ public:
 	/** Player Details to Save */
 	UPROPERTY(VisibleAnywhere, Category = "Tantrumn SaveInfo")
 	FString TantrumnPlayerName;
-
+	
 	/** Pre-reqs for Saving */
 	UPROPERTY(VisibleAnywhere, Category = "Tantrumn SaveInfo")
 	FString SaveSlotName;

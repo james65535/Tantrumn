@@ -27,8 +27,7 @@ void ATantrumnPlayerState::BeginPlay()
 	{
 		if (!TantrumnPlayerController->TantrumnPlayerState)
 		{
-			TantrumnPlayerController->TantrumnPlayerState = this;
-			UE_LOG(LogTemp, Warning, TEXT("player state added to controller"));
+			TantrumnPlayerController->SetTantrumnPlayerState(this);
 			if(!IsRunningDedicatedServer())
 			{
 				LoadSavedPlayerInfo();
@@ -59,9 +58,19 @@ void ATantrumnPlayerState::OnRep_CurrentState()
 	UE_LOG(LogTemp, Warning, TEXT("Player %s State Updated to: %s"), *GetPlayerName() ,*UEnum::GetDisplayValueAsText(CurrentState).ToString());
 }
 
+void ATantrumnPlayerState::OnRep_PlayerName()
+{
+	Super::OnRep_PlayerName();
+
+	if (const ATantrumnPlayerController* TantrumnPlayerController =  Cast<ATantrumnPlayerController>(GetPlayerController()))
+	{
+		TantrumnPlayerController->OnPlayerStateReceived.Broadcast();
+	}
+}
+
 void ATantrumnPlayerState::SavePlayerInfo()
 {
-	if (!HasAuthority() || IsRunningDedicatedServer())
+	if (IsRunningDedicatedServer())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Player save called on server or client with no authority"));
 		return;
@@ -86,7 +95,7 @@ void ATantrumnPlayerState::SavePlayerDelegate(const FString& SlotName, const int
 	UE_LOG(LogTemp, Warning, TEXT("Save Process: %s"), bSuccess ? *FString("Successful") : *FString("Failed"));
 }
 
-void ATantrumnPlayerState::LoadSavedPlayerInfo()
+void ATantrumnPlayerState::LoadSavedPlayerInfo_Implementation()
 {
 	if (IsRunningDedicatedServer()) { return; }
 	
@@ -94,7 +103,6 @@ void ATantrumnPlayerState::LoadSavedPlayerInfo()
 	OnLoadSaveFromSlot.BindUObject(this, &ATantrumnPlayerState::LoadPlayerSaveDelegate);
 	
 	UGameplayStatics::AsyncLoadGameFromSlot(SaveSlotName, SaveUserIndex, OnLoadSaveFromSlot);
-	
 }
 
 void ATantrumnPlayerState::LoadPlayerSaveDelegate(const FString& SlotName, const int32 UserIndex, USaveGame* LoadedGameData)
@@ -102,8 +110,7 @@ void ATantrumnPlayerState::LoadPlayerSaveDelegate(const FString& SlotName, const
 	if (const UTantrumnGeneralSaveGame* LoadedPlayerInfo =
 		Cast<UTantrumnGeneralSaveGame>(UGameplayStatics::LoadGameFromSlot(SlotName, 0)))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Loaded Playername: %s"), *LoadedPlayerInfo->TantrumnPlayerName);
 		GetPlayerController()->SetName(LoadedPlayerInfo->TantrumnPlayerName);
-		OnSaveGameUpdate.Broadcast();
+		OnSaveGameLoad.Broadcast();
 	}
 }
