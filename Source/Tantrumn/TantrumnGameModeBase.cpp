@@ -108,21 +108,32 @@ void ATantrumnGameModeBase::StartGame()
 
 	
 	/** Restore control to Players and reset Player State for Players and AI */
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-	{
-		ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(Iterator->Get());
-		check(PlayerController);
-		if (!MustSpectate(PlayerController))
-		{
-			ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>();
-			check(PlayerState);
-			PlayerState->SetCurrentState(EPlayerGameState::Playing);
-			PlayerState->SetIsWinner(false);
-		}
-	}
-	
+	// for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	// {
+	// 	ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(Iterator->Get());
+	// 	check(PlayerController);
+	// 	if (!MustSpectate(PlayerController))
+	// 	{
+	// 		ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>();
+	// 		check(PlayerState);
+	// 		PlayerState->SetCurrentState(EPlayerGameState::Playing);
+	// 		PlayerState->SetIsWinner(false);
+	// 	}
+	// }
+	//
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
+		if(ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(Iterator->Get()))
+		{
+			if (!MustSpectate(PlayerController))
+			{
+				ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>();
+				check(PlayerState);
+				PlayerState->SetCurrentState(EPlayerGameState::Playing);
+				PlayerState->SetIsWinner(false);
+			}
+		}
+		
 		if(const ATantrumnAIController* TantrumnAIController = Cast<ATantrumnAIController>(Iterator->Get()))
 		{
 			ATantrumnPlayerState* AIPlayerState = TantrumnAIController->GetPlayerState<ATantrumnPlayerState>();

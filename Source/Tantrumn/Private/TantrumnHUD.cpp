@@ -116,15 +116,21 @@ void ATantrumnHUD::SetGameUIAssets(const TSoftObjectPtr<UUIElementsAsset> InGame
 	DisplayUI();
 }
 
-void ATantrumnHUD::ToggleLevelMenuDisplay(const bool bIsDisplayed)
+void ATantrumnHUD::DisplayLevelMenu()
 {
-	checkfSlow(BaseUIWidget, "PlayerHUD attempted to toggle Level Menu but BaseUIWidget was null");
-	BaseUIWidget->ToggleGameMenu(bIsDisplayed);
+	checkfSlow(BaseUIWidget, "PlayerHUD attempted to display Level Menu but LevelMenuWidget was null");
+	LevelMenuWidget->DisplayGameMenu();
+}
+
+void ATantrumnHUD::HideLevelMenu()
+{
+	checkfSlow(BaseUIWidget, "PlayerHUD attempted to display Level Menu but LevelMenuWidget was null");
+	LevelMenuWidget->HideGameMenu();
 }
 
 void ATantrumnHUD::DisplayResults(const TArray<FGameResult>& InResults) const
 {
-	checkfSlow(LevelMenuWidget, "Player HUD - Level Menu Widget was not set prior to call for display")
+	checkfSlow(LevelEndWidget, "PlayerHUD attempted to display results but LevelEndWidget was null")
 	LevelEndWidget->DisplayResults(InResults);
 }
 
@@ -132,7 +138,7 @@ void ATantrumnHUD::RemoveResults()
 {
 	if (LevelEndWidget){ LevelEndWidget->RemoveResults(); }
 	check(BaseUIWidget)
-	BaseUIWidget->ToggleGameMenu(true);
+	LevelMenuWidget->DisplayGameMenu();
 }
 
 void ATantrumnHUD::ToggleDisplayGameTime(const bool bIsDisplayed) const 
@@ -153,8 +159,8 @@ void ATantrumnHUD::DisplayMatchStartCountDownTime(const float InMatchStartCountD
 {
 	check(GameLevelWidget)
 	GameLevelWidget->InitiateMatchStartTimer(InMatchStartCountDownTime);
-	check(BaseUIWidget)
-	BaseUIWidget->ToggleGameMenu(false);
+	check(LevelMenuWidget)
+	LevelMenuWidget->HideGameMenu();
 }
 
 void ATantrumnHUD::UpdateUIOnFinish() const

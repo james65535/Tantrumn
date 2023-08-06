@@ -3,9 +3,12 @@
 
 #include "TantrumnAIController.h"
 
+#include "TantrumnCharMovementComponent.h"
 #include "TantrumnGameStateBase.h"
 #include "TantrumnPlayerState.h"
 #include "BehaviorTree/BlackboardComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Tantrumn/TantrumnCharacterBase.h"
 
 void ATantrumnAIController::BeginPlay()
 {
@@ -29,10 +32,19 @@ void ATantrumnAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void ATantrumnAIController::SetIsPlaying(const float InMatchStartTime)
 {
-	UE_LOG(LogTemp, Warning, TEXT("%f"), InMatchStartTime);
 	if(UBlackboardComponent* BlackBoard = GetBlackboardComponent())
 	{
 		BlackBoard->SetValueAsBool(FName("IsPlaying"), true);
+		if(ATantrumnCharacterBase* TantrumnPawn = Cast<ATantrumnCharacterBase>(GetPawn()))
+		{
+			TantrumnPawn->RequestSprintStart();
+			TantrumnPawn->bUseControllerRotationYaw = false;
+			if(UTantrumnCharMovementComponent* TantrumnCharMovementComponent = Cast<UTantrumnCharMovementComponent>(TantrumnPawn->GetMovementComponent()))
+			{
+				TantrumnCharMovementComponent->bOrientRotationToMovement = false;
+				TantrumnCharMovementComponent->bUseControllerDesiredRotation= true;
+			}
+		}
 	}
 }
 

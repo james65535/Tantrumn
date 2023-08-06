@@ -139,13 +139,11 @@ bool ATantrumnPlayerController::CanProcessRequest() const
 void ATantrumnPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-	UE_LOG(LogTemp, Warning, TEXT("OnPossess: %s"), *GetName());
 }
 
 void ATantrumnPlayerController::OnUnPossess()
 {
 	Super::OnUnPossess();
-	UE_LOG(LogTemp, Warning, TEXT("OnUnPossess: %s"), *GetName());
 }
 
 void ATantrumnPlayerController::OnRetrySelected()
@@ -192,7 +190,7 @@ void ATantrumnPlayerController::RequestDisplayLevelMenu()
 	if (CanProcessRequest())
 	{
 		SetInputContext(MenuInputMapping);
-		PlayerHUD->ToggleLevelMenuDisplay(true);
+		PlayerHUD->DisplayLevelMenu();
 		NM_SetControllerGameInputMode(ETantrumnInputMode::GameAndUI);
 	}
 }
@@ -202,8 +200,8 @@ void ATantrumnPlayerController::RequestHideLevelMenu()
 	if (CanProcessRequest())
 	{
 		SetInputContext(GameInputMapping);
-		PlayerHUD->ToggleLevelMenuDisplay(false);
-		PlayerHUD->UpdateUIOnFinish();
+		PlayerHUD->HideLevelMenu();
+		// PlayerHUD->UpdateUIOnFinish(); // TODO remove?
 		NM_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
 	}
 }

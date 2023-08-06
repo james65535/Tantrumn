@@ -14,10 +14,6 @@ class TANTRUMN_API ATantrumnLevelEndTrigger : public ATriggerVolume
 {
 	GENERATED_BODY()
 
-public:
-
-	ATantrumnLevelEndTrigger();
-
 protected:
 
 	virtual void BeginPlay() override;

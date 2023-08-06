@@ -6,11 +6,6 @@
 #include "TantrumnGameStateBase.h"
 #include "Tantrumn/TantrumnCharacterBase.h"
 
-ATantrumnLevelEndTrigger::ATantrumnLevelEndTrigger()
-{
-	//OnActorBeginOverlap.AddDynamic(this, &ATantrumnLevelEndTrigger::OnOverlapBegin);
-}
-
 void ATantrumnLevelEndTrigger::BeginPlay()
 {
 	Super::BeginPlay();

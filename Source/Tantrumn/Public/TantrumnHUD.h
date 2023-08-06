@@ -36,7 +36,7 @@ public:
 	/**
 	 * Sets the given Screen Resolution
 	 * @param InScreenRes The IntPoint with which to set the Screen Resolution
-	 * @param bOverrideCommandLine Should the Game User Settings override conflicting command line settings
+	 * @param bOverrideCommandLine Should the Game User Settings check for conflicting command line settings
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
 	void SetScreenRes(FIntPoint InScreenRes, bool bOverrideCommandLine);
@@ -76,7 +76,10 @@ public:
 	
 	/** Display the Game Menu HUD within a Level */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
-	void ToggleLevelMenuDisplay(const bool bIsDisplayed);
+	void DisplayLevelMenu();
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
+	void HideLevelMenu();
+
 
 private:
 

@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "5.1",
+	"EngineAssociation": "{4E726A6E-4E94-D2D6-BF40-8A9FBAFC87D1}",
 	"Category": "",
 	"Description": "",
 	"Modules": [
@@ -42,6 +42,7 @@
 		}
 	],
 	"TargetPlatforms": [
-		"Windows"
+		"Windows",
+		"Linux"
 	]
 }

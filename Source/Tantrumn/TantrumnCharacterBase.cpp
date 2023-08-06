@@ -898,7 +898,13 @@ void ATantrumnCharacterBase::ApplyEffect_Implementation(EEffectType EffectType, 
 	switch (CurrentEffect)
 	{
 	case EEffectType::SPEED :
-		bIsEffectBuff ? TantrumnCharMoveComp->MaxWalkSpeed *= 2 : TantrumnCharMoveComp->DisableMovement();
+		if(bIsEffectBuff)
+		{
+			TantrumnCharMoveComp->MaxWalkSpeed *= 2;
+		} else
+		{
+			TantrumnCharMoveComp->DisableMovement();
+		}
 
 	default:
 		break;
@@ -913,9 +919,14 @@ void ATantrumnCharacterBase::EndEffect()
 	{
 		case EEffectType::SPEED :
 		{
-			bIsEffectBuff ?
-				TantrumnCharMoveComp->MaxWalkSpeed /= 2, RequestSprintEnd() :
+			if(bIsEffectBuff)
+			{
+				TantrumnCharMoveComp->MaxWalkSpeed /= 2, RequestSprintEnd();
+			}
+				else
+			{
 				TantrumnCharMoveComp->SetMovementMode(MOVE_Walking);
+			}
 			break;
 		}
 		default: break;

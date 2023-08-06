@@ -10,7 +10,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-static TAutoConsoleVariable<bool> CVarDisplayTrace(
+static TAutoConsoleVariable<bool> CVarDisplayAITrace(
 	TEXT("Tantrumn.AI.Debug.DisplayTrace"),
 	false,
 	TEXT("Display AI Task Trace"),
@@ -58,7 +58,7 @@ FVector UBTTask_JumpToPlatform::JumpToPlatformLocation(FVector StartLoc, FVector
 	float InnerSearchRad = SearchRadius;
 
 	// Whether to show visual trace for debugging
-	EDrawDebugTrace::Type DebugTrace = CVarDisplayTrace->GetBool() ?
+	EDrawDebugTrace::Type DebugTrace = CVarDisplayAITrace->GetBool() ?
 		EDrawDebugTrace::ForDuration : EDrawDebugTrace::None;
 
 	// Perform the series of traces
