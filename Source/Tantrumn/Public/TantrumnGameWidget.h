@@ -8,6 +8,7 @@
 #include "TantrumnGameWidget.generated.h"
 
 enum class ETantrumnGameType : uint8;
+enum class EPlayerGameState : uint8;
 
 USTRUCT(BlueprintType, Category = "Tantrumn UI")
 struct FGameUIClassInfo
@@ -80,6 +81,8 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
 	void DisplayGameModeUI();
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
+	void UpdateDisplayedPlayerState(EPlayerGameState InPlayerState);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
 	void DisplayGameMenu();

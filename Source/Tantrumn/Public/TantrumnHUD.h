@@ -8,6 +8,7 @@
 #include "TantrumnGameStateBase.h"
 #include "TantrumnHUD.generated.h"
 
+enum class EPlayerGameState : uint8;
 class UTantrumnGameWidget;
 class ATantrumnPlayerController;
 
@@ -79,6 +80,9 @@ public:
 	void DisplayLevelMenu();
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
 	void HideLevelMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn UI")
+	void UpdateDisplayedPlayerState(const EPlayerGameState InPlayerState) const;
 
 
 private:

@@ -5,6 +5,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
 #include "TantrumnGeneralSaveGame.h"
+#include "TantrumnHUD.h"
 #include "Kismet/GameplayStatics.h"
 #include "Tantrumn/TantrumnGameModeBase.h"
 #include "Tantrumn/TantrumnPlayerController.h"
@@ -23,7 +24,7 @@ void ATantrumnPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	if (ATantrumnPlayerController* TantrumnPlayerController =  Cast<ATantrumnPlayerController>(GetPlayerController()))
+	if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetPlayerController()))
 	{
 		if (!TantrumnPlayerController->TantrumnPlayerState)
 		{
@@ -33,29 +34,43 @@ void ATantrumnPlayerState::BeginPlay()
 				LoadSavedPlayerInfo();
 			}
 		}
+		SetCurrentState(EPlayerGameState::Waiting);
 	}
 }
 
 void ATantrumnPlayerState::SetCurrentState(const EPlayerGameState PlayerGameState)
 {
-	if (HasAuthority())
-	{
-		CurrentState = PlayerGameState;
-		MARK_PROPERTY_DIRTY_FROM_NAME(ATantrumnPlayerState, CurrentState, this);
+	if (!HasAuthority()){ return; }
+	
+	CurrentState = PlayerGameState;
+	MARK_PROPERTY_DIRTY_FROM_NAME(ATantrumnPlayerState, CurrentState, this);
 
-		/** If Player is Ready then notify game mode */
-		if (PlayerGameState == EPlayerGameState::Ready)
+	/** If Player is Ready then notify game mode */
+	if (PlayerGameState == EPlayerGameState::Ready)
+	{
+		ATantrumnGameModeBase* TantrumnGameMode = Cast<ATantrumnGameModeBase>(GetWorld()->GetAuthGameMode());
+		check(TantrumnGameMode);
+		TantrumnGameMode->PlayerNotifyIsReady(this);
+	}
+	
+	if(const ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetOwner()))
+	{
+		if (TantrumnPlayerController->IsLocalController())
 		{
-			ATantrumnGameModeBase* TantrumnGameMode = Cast<ATantrumnGameModeBase>(GetWorld()->GetAuthGameMode());
-			check(TantrumnGameMode);
-			TantrumnGameMode->PlayerNotifyIsReady(this);
+			if(const ATantrumnHUD* TantrumnHUD = Cast<ATantrumnHUD>(TantrumnPlayerController->GetHUD()))
+			{
+				TantrumnHUD->UpdateDisplayedPlayerState(CurrentState);
+			}
 		}
 	}
 }
 
 void ATantrumnPlayerState::OnRep_CurrentState()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Player %s State Updated to: %s"), *GetPlayerName() ,*UEnum::GetDisplayValueAsText(CurrentState).ToString());
+	if(const ATantrumnHUD* PlayerHud = Cast<ATantrumnHUD>(GetPlayerController()->GetHUD()))
+	{
+		PlayerHud->UpdateDisplayedPlayerState(CurrentState);
+	}
 }
 
 void ATantrumnPlayerState::OnRep_PlayerName()
@@ -70,11 +85,7 @@ void ATantrumnPlayerState::OnRep_PlayerName()
 
 void ATantrumnPlayerState::SavePlayerInfo()
 {
-	if (IsRunningDedicatedServer())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Player save called on server or client with no authority"));
-		return;
-	}
+	if (IsRunningDedicatedServer()){ return; }
 	
 	if (UTantrumnGeneralSaveGame* SaveGameInstance =
 		Cast<UTantrumnGeneralSaveGame>(UGameplayStatics::CreateSaveGameObject(UTantrumnGeneralSaveGame::StaticClass())))
@@ -83,7 +94,7 @@ void ATantrumnPlayerState::SavePlayerInfo()
 		OnSavedToSlot.BindUObject(this, &ATantrumnPlayerState::SavePlayerDelegate);
 
 		/** Assign data to be saved */
-		SaveGameInstance->TantrumnPlayerName = GetPlayerName();
+		SaveGameInstance->TantrumnPlayerName = *GetPlayerName();
 		SaveGameInstance->UserIndex = SaveUserIndex;
 		
 		UGameplayStatics::AsyncSaveGameToSlot(SaveGameInstance, SaveSlotName, SaveUserIndex, OnSavedToSlot);

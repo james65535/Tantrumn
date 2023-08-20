@@ -118,14 +118,22 @@ void ATantrumnHUD::SetGameUIAssets(const TSoftObjectPtr<UUIElementsAsset> InGame
 
 void ATantrumnHUD::DisplayLevelMenu()
 {
-	checkfSlow(BaseUIWidget, "PlayerHUD attempted to display Level Menu but LevelMenuWidget was null");
+	checkfSlow(LevelMenuWidget, "PlayerHUD attempted to display Level Menu but LevelMenuWidget was null");
 	LevelMenuWidget->DisplayGameMenu();
 }
 
 void ATantrumnHUD::HideLevelMenu()
 {
-	checkfSlow(BaseUIWidget, "PlayerHUD attempted to display Level Menu but LevelMenuWidget was null");
+	checkfSlow(LevelMenuWidget, "PlayerHUD attempted to display Level Menu but LevelMenuWidget was null");
 	LevelMenuWidget->HideGameMenu();
+}
+
+void ATantrumnHUD::UpdateDisplayedPlayerState(const EPlayerGameState InPlayerState) const
+{
+	if(IsValid(GameLevelWidget))
+	{
+		GameLevelWidget->UpdateDisplayedPlayerState(InPlayerState);
+	}
 }
 
 void ATantrumnHUD::DisplayResults(const TArray<FGameResult>& InResults) const

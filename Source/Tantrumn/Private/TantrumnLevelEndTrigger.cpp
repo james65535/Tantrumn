@@ -12,7 +12,7 @@ void ATantrumnLevelEndTrigger::BeginPlay()
 	TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>();
 	if(TantrumnGameState)
 	{
-		OnActorBeginOverlap.AddDynamic(this, &ATantrumnLevelEndTrigger::OnOverlapBegin);	
+		OnActorBeginOverlap.AddUniqueDynamic(this, &ATantrumnLevelEndTrigger::OnOverlapBegin);
 	}
 }
 
