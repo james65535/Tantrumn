@@ -471,7 +471,7 @@ void ATantrumnCharacterBase::StartRescue()
 	// This will be broadcasted, don't want to potentially start moving to a bad location
 	FallOutOfWorldPosition = GetActorLocation();
 	bBeingRescued = true;
-	OnBeingRescuedEvent.Broadcast();
+	OnBeingRescuedEvent.Broadcast(bBeingRescued);
 	CurrentRescueTime = 0.0f;
 	TantrumnCharMoveComp->Deactivate();
 	SetActorEnableCollision(false);
@@ -479,20 +479,14 @@ void ATantrumnCharacterBase::StartRescue()
 
 void ATantrumnCharacterBase::OnRep_IsBeingRescued()
 {
-	if (bBeingRescued)
-	{
-		StartRescue();
-	}
-	else
-	{
-		EndRescue();
-	}
+	bBeingRescued ? StartRescue() : EndRescue();
 }
 
 void ATantrumnCharacterBase::EndRescue()
 {
 	// Authority will dictate when this is over
 	bBeingRescued = false;
+	OnBeingRescuedEvent.Broadcast(bBeingRescued);
 	TantrumnCharMoveComp->Activate();
 	SetActorEnableCollision(true);
 	CurrentRescueTime = 0.0f;
@@ -501,9 +495,7 @@ void ATantrumnCharacterBase::EndRescue()
 bool ATantrumnCharacterBase::IsHovering() const
 {
 	if (const ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
-	{
-		return TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Waiting;
-	}
+	{ return TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Waiting; }
 
 	return false;
 }
@@ -645,9 +637,7 @@ void ATantrumnCharacterBase::RequestThrowObject()
 			ServerRequestThrowObject();
 		}
 		else
-		{
-			ResetThrowableObject();
-		}
+		{ ResetThrowableObject(); }
 	}
 }
 
@@ -667,9 +657,7 @@ void ATantrumnCharacterBase::MulticastRequestThrowObject_Implementation()
 {
 	// Locally controlled actor already has the binding and played the montage
 	if (IsLocallyControlled())
-	{
-		return;
-	}
+	{ return; }
 
 	PlayThrowMontage();
 	CharacterThrowState = ECharacterThrowState::Throwing;
@@ -683,9 +671,7 @@ void ATantrumnCharacterBase::ServerBeginThrow_Implementation()
 	{
 		if (UPrimitiveComponent* RootPrimitiveComponent =
 			Cast<UPrimitiveComponent>(ThrowableActor->GetRootComponent()))
-		{
-			RootPrimitiveComponent->IgnoreActorWhenMoving(this, true);
-		}
+		{ RootPrimitiveComponent->IgnoreActorWhenMoving(this, true); }
 	}
 	
 	const FVector& Direction = GetActorForwardVector() * ThrowSpeed;
@@ -710,9 +696,7 @@ void ATantrumnCharacterBase::ServerFinishThrow_Implementation()
 	{
 		if (UPrimitiveComponent* RootPrimitiveComponent =
 			Cast<UPrimitiveComponent>(ThrowableActor->GetRootComponent()))
-		{
-			RootPrimitiveComponent->IgnoreActorWhenMoving(this, false);
-		}
+		{ RootPrimitiveComponent->IgnoreActorWhenMoving(this, false); }
 	}
 	ThrowableActor = nullptr;
 }
@@ -722,9 +706,8 @@ void ATantrumnCharacterBase::ResetThrowableObject()
 {
 	// Drop object
 	if (ThrowableActor)
-	{
-		ThrowableActor->Drop();
-	}
+	{ ThrowableActor->Drop(); }
+	
 	CharacterThrowState = ECharacterThrowState::None;
 	ThrowableActor = nullptr;
 }
@@ -735,17 +718,11 @@ void ATantrumnCharacterBase::OnRep_CharacterThrowState(const ECharacterThrowStat
 	if (CharacterThrowState != OldCharacterThrowState)
 	{
 		if (GetLocalRole() == ROLE_SimulatedProxy)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Simultated proxy throw"));
-		}
+		{ UE_LOG(LogTemp, Warning, TEXT("Simultated proxy throw")); }
 		else if (GetLocalRole() == ROLE_AutonomousProxy)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Autonomous proxy throw"));
-		}
+		{ UE_LOG(LogTemp, Warning, TEXT("Autonomous proxy throw"));}
 		else if (GetNetMode() == ENetMode::NM_DedicatedServer)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Dedicated Authority proxy throw"));
-		}
+		{ UE_LOG(LogTemp, Warning, TEXT("Dedicated Authority proxy throw")); }
 		UE_LOG(LogTemp, Warning, TEXT("OldThrowState: %s"),*UEnum::GetDisplayValueAsText(OldCharacterThrowState).ToString());
 		UE_LOG(LogTemp, Warning, TEXT("CharacterThrowState: %s"), *UEnum::GetDisplayValueAsText(CharacterThrowState).ToString());
 	}
@@ -806,9 +783,8 @@ bool ATantrumnCharacterBase::PlayCelebrateMontage()
 void ATantrumnCharacterBase::NM_FinishedMatch_Implementation()
 {
 	if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetController()))
-	{
-		TantrumnPlayerController->FinishedMatch();
-	}
+	{ TantrumnPlayerController->FinishedMatch(); }
+	
 	GetCharacterMovement()->DisableMovement();
 	PlayCelebrateMontage();
 }
@@ -847,9 +823,7 @@ void ATantrumnCharacterBase::OnMontageBlendingOut(UAnimMontage* Montage, bool bI
 void ATantrumnCharacterBase::OnMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	if (IsLocallyControlled())
-	{
-		UnbindMontage();
-	}
+	{ UnbindMontage(); }
 
 	if (Montage == ThrowMontage)
 	{
@@ -899,12 +873,10 @@ void ATantrumnCharacterBase::ApplyEffect_Implementation(EEffectType EffectType, 
 	{
 	case EEffectType::SPEED :
 		if(bIsEffectBuff)
-		{
-			TantrumnCharMoveComp->MaxWalkSpeed *= 2;
-		} else
-		{
-			TantrumnCharMoveComp->DisableMovement();
+		{ TantrumnCharMoveComp->MaxWalkSpeed *= 2;
 		}
+		else
+		{ TantrumnCharMoveComp->DisableMovement(); }
 
 	default:
 		break;
@@ -920,13 +892,9 @@ void ATantrumnCharacterBase::EndEffect()
 		case EEffectType::SPEED :
 		{
 			if(bIsEffectBuff)
-			{
-				TantrumnCharMoveComp->MaxWalkSpeed /= 2, RequestSprintEnd();
-			}
-				else
-			{
-				TantrumnCharMoveComp->SetMovementMode(MOVE_Walking);
-			}
+			{ TantrumnCharMoveComp->MaxWalkSpeed /= 2, RequestSprintEnd(); }
+			else
+			{ TantrumnCharMoveComp->SetMovementMode(MOVE_Walking); }
 			break;
 		}
 		default: break;
@@ -1005,9 +973,7 @@ bool ATantrumnCharacterBase::IsLandingValid(FVector StartLoc, FVector& ValidLoc,
 
 	// Found nothing so we give up and bail out
 	if (NumRetries <= 0)
-	{
-		return false;
-	}
+	{ return false; }
 
 	// Prep for next search
 	SearchRadius *= 2.0f;

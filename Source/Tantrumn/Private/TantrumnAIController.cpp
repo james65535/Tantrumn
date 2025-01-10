@@ -8,7 +8,13 @@
 #include "TantrumnPlayerState.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Perception/AIPerceptionComponent.h"
 #include "Tantrumn/TantrumnCharacterBase.h"
+
+ATantrumnAIController::ATantrumnAIController()
+{
+	AIPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>("Perception Component");
+}
 
 void ATantrumnAIController::BeginPlay()
 {
@@ -48,16 +54,30 @@ void ATantrumnAIController::SetIsPlaying(const float InMatchStartTime)
 	}
 }
 
+void ATantrumnAIController::RespondToBeingRescued(bool bIsBeingRescued)
+{
+	if (UBlackboardComponent* BlackBoard = GetBlackboardComponent())
+	{ BlackBoard->SetValueAsBool(FName("IsBeingRescued"), bIsBeingRescued); }
+}
+
 void ATantrumnAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-		if (ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
-		{
-			TantrumnPlayerState->SetCurrentState(EPlayerGameState::Waiting);
-		}
+	
+	if (ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
+	{ TantrumnPlayerState->SetCurrentState(EPlayerGameState::Waiting); }
+
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(InPawn))
+	{
+		TantrumnCharacter->OnBeingRescuedEvent.AddDynamic(this, &ThisClass::RespondToBeingRescued);
+	}
 }
 
 void ATantrumnAIController::OnUnPossess()
 {
+
+	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetPawn()))
+	{ TantrumnCharacter->OnBeingRescuedEvent.RemoveAll(this);}
+	
 	Super::OnUnPossess();
 }

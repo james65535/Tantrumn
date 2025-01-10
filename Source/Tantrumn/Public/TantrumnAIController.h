@@ -16,6 +16,8 @@ class TANTRUMN_API ATantrumnAIController : public AAIController
 
 public:
 
+	ATantrumnAIController();
+
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void OnPossess(APawn* InPawn) override;
@@ -23,6 +25,12 @@ public:
 
 private:
 
+	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, meta = (AllowPrivateAccess), Category = "Tantrumn")
+	class UAIPerceptionComponent* AIPerceptionComponent;
+
 	// Delegate for Game State broadcast
 	void SetIsPlaying(const float InMatchStartTime);
+
+	UFUNCTION()
+	void RespondToBeingRescued(bool bIsBeingRescued);
 };

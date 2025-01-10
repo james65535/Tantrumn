@@ -21,7 +21,7 @@ enum class ECharacterThrowState : uint8
 	Aiming			UMETA(DisplayName = "Aiming")
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBeingRescued);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBeingRescued, bool, bIsCharacterBeingRescued);
 
 UCLASS()
 class TANTRUMN_API ATantrumnCharacterBase : public ACharacter, public IInteractInterface
