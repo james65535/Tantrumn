@@ -19,42 +19,27 @@ ATantrumnAIController::ATantrumnAIController()
 void ATantrumnAIController::BeginPlay()
 {
 	Super::BeginPlay();
+	
 	if(ATantrumnGameStateBase* TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>())
-	{
-		TantrumnGameState->OnStartMatchDelegate.AddUObject(this, &ATantrumnAIController::SetIsPlaying);
-	}
+	{ TantrumnGameState->OnStartMatchDelegate.AddUObject(this, &ATantrumnAIController::SetIsPlaying); }
 }
 
 void ATantrumnAIController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	Super::EndPlay(EndPlayReason);
-
 	// Clear Delegates
 	if(ATantrumnGameStateBase* TantrumnGameState = GetWorld()->GetGameState<ATantrumnGameStateBase>())
-	{
-		TantrumnGameState->OnStartMatchDelegate.RemoveAll(this);
-	}
+	{ TantrumnGameState->OnStartMatchDelegate.RemoveAll(this); }
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void ATantrumnAIController::SetIsPlaying(const float InMatchStartTime)
 {
 	if(UBlackboardComponent* BlackBoard = GetBlackboardComponent())
-	{
-		BlackBoard->SetValueAsBool(FName("IsPlaying"), true);
-		if(ATantrumnCharacterBase* TantrumnPawn = Cast<ATantrumnCharacterBase>(GetPawn()))
-		{
-			TantrumnPawn->RequestSprintStart();
-			TantrumnPawn->bUseControllerRotationYaw = false;
-			if(UTantrumnCharMovementComponent* TantrumnCharMovementComponent = Cast<UTantrumnCharMovementComponent>(TantrumnPawn->GetMovementComponent()))
-			{
-				TantrumnCharMovementComponent->bOrientRotationToMovement = false;
-				TantrumnCharMovementComponent->bUseControllerDesiredRotation= true;
-			}
-		}
-	}
+	{ BlackBoard->SetValueAsBool(FName("IsPlaying"), true); }
 }
 
-void ATantrumnAIController::RespondToBeingRescued(bool bIsBeingRescued)
+void ATantrumnAIController::RespondToBeingRescued(const bool bIsBeingRescued)
 {
 	if (UBlackboardComponent* BlackBoard = GetBlackboardComponent())
 	{ BlackBoard->SetValueAsBool(FName("IsBeingRescued"), bIsBeingRescued); }
@@ -66,16 +51,24 @@ void ATantrumnAIController::OnPossess(APawn* InPawn)
 	
 	if (ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
 	{ TantrumnPlayerState->SetCurrentState(EPlayerGameState::Waiting); }
-
+	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(InPawn))
 	{
-		TantrumnCharacter->OnBeingRescuedEvent.AddDynamic(this, &ThisClass::RespondToBeingRescued);
+		TantrumnCharacter->OnBeingRescuedEvent.AddUniqueDynamic(this, &ThisClass::RespondToBeingRescued);
+
+		TantrumnCharacter->RequestSprintStart();
+		TantrumnCharacter->bUseControllerRotationYaw = false;
+		if(UTantrumnCharMovementComponent* TantrumnCharMovementComponent = Cast<UTantrumnCharMovementComponent>
+			(TantrumnCharacter->GetMovementComponent()))
+		{
+			TantrumnCharMovementComponent->bOrientRotationToMovement = false;
+			TantrumnCharMovementComponent->bUseControllerDesiredRotation= true;
+		}
 	}
 }
 
 void ATantrumnAIController::OnUnPossess()
 {
-
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetPawn()))
 	{ TantrumnCharacter->OnBeingRescuedEvent.RemoveAll(this);}
 	

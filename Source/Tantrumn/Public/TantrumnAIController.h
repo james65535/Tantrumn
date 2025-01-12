@@ -32,5 +32,5 @@ private:
 	void SetIsPlaying(const float InMatchStartTime);
 
 	UFUNCTION()
-	void RespondToBeingRescued(bool bIsBeingRescued);
+	void RespondToBeingRescued(const bool bIsBeingRescued);
 };
