@@ -65,8 +65,7 @@ void ATantrumnCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 	SharedParams. Condition = COND_SkipOwner;
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, CharacterThrowState, SharedParams);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, bIsStunned, SharedParams);
-	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, bBeingRescued, SharedParams);
-	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, LastGroundPosition, SharedParams);
+	DOREPLIFETIME_WITH_PARAMS_FAST(ATantrumnCharacterBase, bIsBeingRescued, SharedParams)
 }
 
 // Called when the game starts or when spawned
@@ -91,32 +90,17 @@ void ATantrumnCharacterBase::Tick(float DeltaTime)
 		return;
 	}
 	
-	if (IsBeingRescued() && HasAuthority() && GetLocalRole() != ROLE_AutonomousProxy)
+	if (IsBeingRescued())
 	{
 		UpdateRescue(DeltaTime);
 		return;
 	}
 
-	// TODO review this
-	// Exit before processing tick if this is a replica on a remote system
-	// if (!IsLocallyControlled())
-	// {
-	// 	return;
-	// }
-
-	// Check for stun as it will impact character movement
-	// if (TantrumnCharMoveComp->IsStunned())
-	// {
-	// 	return;
-	// }
-
 	// Check for effect status
 	if(bIsUnderEffect)
 	{
 		if (EffectCooldown > 0)
-		{
-			EffectCooldown -= DeltaTime;
-		}
+		{ EffectCooldown -= DeltaTime; }
 		else
 		{
 			bIsUnderEffect = false;
@@ -218,17 +202,13 @@ void ATantrumnCharacterBase::ProcessTraceResult(const FHitResult& HitResult, boo
 	}
 
 	if (!IsValidTarget)
-	{
-		return;
-	}
+	{ return; }
 
 	if (!IsSameActor)
 	{
 		ThrowableActor = HitThrowableActor;
 		if (bHighlight)
-		{
-			ThrowableActor->ToggleHighlight(true);
-		}
+		{ ThrowableActor->ToggleHighlight(true); }
 	}
 
 	// Perform pull
@@ -250,9 +230,7 @@ void ATantrumnCharacterBase::SphereCastPlayerView()
 	FRotator Rotation;
 	
 	if (!GetController())
-	{
-		return;
-	}
+	{ return; }
 	
 	GetController()->GetPlayerViewPoint(Location, Rotation);
 	const FVector PlayerViewForward = Rotation.Vector();
@@ -306,27 +284,23 @@ void ATantrumnCharacterBase::SphereCastPlayerView()
 
 void ATantrumnCharacterBase::OnMovementModeChanged(EMovementMode PrevMovementMode, uint8 PreviousCustomMode)
 {
-	if (!HasAuthority())
-	{
-		return;
-	}
+	if (!HasAuthority() && IsRunningClientOnly())
+	{ return; }
 	
 	if (!IsBeingRescued() &&
 		(PrevMovementMode == MOVE_Walking && TantrumnCharMoveComp->MovementMode == MOVE_Falling))
 	{
-		LastGroundPosition =
-			GetActorLocation() +(GetActorForwardVector() * -100.0f) +(GetActorUpVector() * 100.0f);
-	
-		// Ensure LastGroundPosition is a valid static location and not something which moves
+		LastGroundLocation =
+			GetActorLocation() + (GetActorForwardVector() * -100.0f) + (GetActorUpVector() * 100.0f);
+
+		// Ensure LastGroundLocation is a valid static location and not something which moves
 		FVector ValidLoc;
-		if(IsLandingValid(LastGroundPosition,ValidLoc,200.0f, 3))
-		{
-			LastGroundPosition = ValidLoc;
-		}
+		if(IsLandingValid(LastGroundLocation,ValidLoc,200.0f, 3))
+		{ LastGroundLocation = ValidLoc; }
 		else
 		{
-			LastGroundPosition =
-				GetActorLocation() +(GetActorForwardVector() * -600.0f) +(GetActorUpVector() * 100.0f);	
+			LastGroundLocation =
+				GetActorLocation() + (GetActorForwardVector() * -600.0f) + (GetActorUpVector() * 100.0f);	
 		}
 	}
 
@@ -335,10 +309,7 @@ void ATantrumnCharacterBase::OnMovementModeChanged(EMovementMode PrevMovementMod
 
 void ATantrumnCharacterBase::FellOutOfWorld(const UDamageType& dmgType)
 {
-	if (HasAuthority())
-	{
 		StartRescue();
-	}
 }
 
 // TODO check if we do not already handle sprint replication
@@ -371,15 +342,11 @@ void ATantrumnCharacterBase::RequestStunStart(const float DurationMultiplier)
 {
 	// Let character play with existing stun instead of stacking or resetting stun timers.
 	if (bIsStunned)
-	{
-		return;
-	}
+	{ return; }
 
 	// Drop throwable object if it is held
 	if (CharacterThrowState == ECharacterThrowState::Attached || CharacterThrowState == ECharacterThrowState::Aiming)
-	{
-		ResetThrowableObject();
-	}
+	{ ResetThrowableObject(); }
 
 	// TODO check if we need to implement stop sprint state
 	TantrumnCharMoveComp->RequestStun(false, DurationMultiplier);
@@ -391,57 +358,50 @@ void ATantrumnCharacterBase::OnRep_IsStunned()
 	{
 		// Update simulated proxy clients
 		if (bIsStunned)
-		{
-			TantrumnCharMoveComp->RequestStun(true, MaxImpactStunMultiplier);
-		}
+		{ TantrumnCharMoveComp->RequestStun(true, MaxImpactStunMultiplier); }
 		else if (!bIsStunned)
-		{
-			TantrumnCharMoveComp->RequestStunEnd(true);
-		}
+		{ TantrumnCharMoveComp->RequestStunEnd(true); }
 	}
 }
 
 void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);
+	
+	/** stun player if impact speed exceeds threshold abd Determine effects of fall based upon speed */
+	const float FallImpactSpeed = FMath::Abs(GetVelocity().Z);
+	UE_LOG(LogTemp, Warning, TEXT("Character Landed with Fall Impact Speed: %f"), FallImpactSpeed);
+	if (FallImpactSpeed < MinImpactSpeed)
+	{ return; }
+	else if (FallImpactSpeed >= MinImpactSpeed && FallImpactSpeed < MaxImpactSpeed)
+	{
+		// Stun the player to affect movement for a duration
+		const float Duration = FMath::Clamp(MinImpactSpeed / FallImpactSpeed, 0.0f, 1.0f);
+		RequestStunStart(Duration * MinImpactStunMultiplier);
+	}
+	else if (FallImpactSpeed >= MaxImpactSpeed)
+	{
+		// Stun the player to affect movement for a duration
+		RequestStunStart(MaxImpactStunMultiplier);
+		
+		// Soundcue triggers
+		if (HeavyLandSound && GetOwner())
+		{
+			UGameplayStatics::PlaySoundAtLocation(
+				this,
+				HeavyLandSound,
+				GetOwner()->GetActorLocation());
+		}
+	}
 
-	// Apply Controller Force FeedBack and stun player if impact speed exceeds threshold
+	/** Apply Controller Force FeedBack */
 	if(ATantrumnPlayerController* PlayerController = GetController<ATantrumnPlayerController>())
 	{
-		// Determine effects of fall based upon speed
-		const float FallImpactSpeed = FMath::Abs(GetVelocity().Z);
-		UE_LOG(LogTemp, Warning, TEXT("Character Landed with Fall Impact Speed: %f"), FallImpactSpeed);
-		if (FallImpactSpeed < MinImpactSpeed)
-		{
-			// Nothing to do, light fall
-			return;
-		}
-		else if (FallImpactSpeed >= MinImpactSpeed && FallImpactSpeed < MaxImpactSpeed)
-		{
-			// Stun the player to affect movement for a duration
-			const float Duration = FMath::Clamp(MinImpactSpeed / FallImpactSpeed, 0.0f, 1.0f);
-			RequestStunStart(Duration * MinImpactStunMultiplier);
-		}
-		else if (FallImpactSpeed >= MaxImpactSpeed)
-		{
-			// Stun the player to affect movement for a duration
-			RequestStunStart(MaxImpactStunMultiplier);
-			
-			// Soundcue triggers
-			if (HeavyLandSound && GetOwner())
-			{
-				UGameplayStatics::PlaySoundAtLocation(
-					this,
-					HeavyLandSound,
-					GetOwner()->GetActorLocation());
-			}
-		}
-
 		// Controller Force Feedback
 		// Calculate Severity of Impact
 		const float DeltaImpact = MaxImpactSpeed - MinImpactSpeed;
 		const float FallRatio = FMath::Clamp((FallImpactSpeed - MinImpactSpeed) / DeltaImpact, 0.0f, 1.0f);
-
+	
 		// Apply force feedback
 		const bool bAffectSmall = FallRatio <= 0.5;
 		const bool bAffectLarge = FallRatio > 0.5;
@@ -453,43 +413,55 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 	}
 }
 
-void ATantrumnCharacterBase::UpdateRescue(float DeltaTime)
+void ATantrumnCharacterBase::UpdateRescue(const float DeltaTimeSeconds)
 {
-	CurrentRescueTime += DeltaTime;
-	const float Alpha = FMath::Clamp(CurrentRescueTime / TimeToRescuePlayer, 0.0f, 1.0f);
-	const FVector NewPlayerLocation = UKismetMathLibrary::VLerp(FallOutOfWorldPosition, LastGroundPosition, Alpha);
+	CurrentRescueTimeSeconds += DeltaTimeSeconds;
+	const float Alpha = FMath::Clamp(CurrentRescueTimeSeconds / RescuePlayerDurationSeconds, 0.0f, 1.0f);
+	const FVector NewPlayerLocation = UKismetMathLibrary::VLerp(FallOutOfWorldLocation, RescueDestination, Alpha);
 	SetActorLocation(NewPlayerLocation);
 
-	if (HasAuthority() && Alpha >= 1.0f)
+	if (Alpha >= 1.0f && HasAuthority() && !IsRunningClientOnly())
 	{
-			EndRescue();
+		SetReplicateMovement(true);
+		NM_EndRescue();
 	}
 }
 
 void ATantrumnCharacterBase::StartRescue()
 {
-	// This will be broadcasted, don't want to potentially start moving to a bad location
-	FallOutOfWorldPosition = GetActorLocation();
-	bBeingRescued = true;
-	OnBeingRescuedEvent.Broadcast(bBeingRescued);
-	CurrentRescueTime = 0.0f;
+	if (HasAuthority() && !IsRunningClientOnly() && !bIsBeingRescued)
+	{
+		SetReplicateMovement(false);
+		NM_StartRescue(
+			UKismetMathLibrary::FTruncVector(GetActorLocation()),
+			UKismetMathLibrary::FTruncVector(LastGroundLocation));
+	}
+}
+
+void ATantrumnCharacterBase::NM_StartRescue_Implementation(const FIntVector InFallOutOfWorldPosition, const FIntVector InRescueDestination)
+{
+	CurrentRescueTimeSeconds = 0.0f;
+	
+	FallOutOfWorldLocation = FVector(InFallOutOfWorldPosition);
+	RescueDestination = FVector(InRescueDestination);
+
 	TantrumnCharMoveComp->Deactivate();
 	SetActorEnableCollision(false);
+	bIsBeingRescued = true;
+	
+	OnBeingRescuedEvent.Broadcast(bIsBeingRescued);
 }
 
-void ATantrumnCharacterBase::OnRep_IsBeingRescued()
+void ATantrumnCharacterBase::NM_EndRescue_Implementation()
 {
-	bBeingRescued ? StartRescue() : EndRescue();
-}
-
-void ATantrumnCharacterBase::EndRescue()
-{
-	// Authority will dictate when this is over
-	bBeingRescued = false;
-	OnBeingRescuedEvent.Broadcast(bBeingRescued);
-	TantrumnCharMoveComp->Activate();
+	bIsBeingRescued = false;
 	SetActorEnableCollision(true);
-	CurrentRescueTime = 0.0f;
+	TantrumnCharMoveComp->Activate();
+	SetReplicateMovement(true);
+	OnBeingRescuedEvent.Broadcast(bIsBeingRescued);
+	CurrentRescueTimeSeconds = 0.0f;
+
+	UE_LOG(LogTemp, Warning, TEXT("Characterbase has run EndRescue"));
 }
 
 bool ATantrumnCharacterBase::IsHovering() const

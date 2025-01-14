@@ -41,9 +41,7 @@ UTantrumnGameWidget* ATantrumnHUD::AddSlotUI_Implementation(TSubclassOf<UTantrum
 	{
 		BaseUIWidget->SetContentForSlot(InSlotName, OutWidgetRef);
 		if(BaseUIWidget->GetContentForSlot(InSlotName) != nullptr)
-		{
-			return OutWidgetRef;
-		}
+		{ return OutWidgetRef; }
 	}
 	return nullptr;
 }
@@ -91,9 +89,7 @@ void ATantrumnHUD::SetScreenRes(FIntPoint InScreenRes,  bool bOverrideCommandLin
 void ATantrumnHUD::ConfirmGameUserSettings(bool bOverrideCommandLine)
 {
 	if(UGameUserSettings* GameUserSettings = UGameUserSettings::GetGameUserSettings())
-	{
-		GameUserSettings->ApplySettings(bOverrideCommandLine);
-	}
+	{ GameUserSettings->ApplySettings(bOverrideCommandLine); }
 }
 
 void ATantrumnHUD::SetGameUIAssets(const TSoftObjectPtr<UUIElementsAsset> InGameUIElementsAssets)
@@ -131,9 +127,7 @@ void ATantrumnHUD::HideLevelMenu()
 void ATantrumnHUD::UpdateDisplayedPlayerState(const EPlayerGameState InPlayerState) const
 {
 	if(IsValid(GameLevelWidget))
-	{
-		GameLevelWidget->UpdateDisplayedPlayerState(InPlayerState);
-	}
+	{ GameLevelWidget->UpdateDisplayedPlayerState(InPlayerState); }
 }
 
 void ATantrumnHUD::DisplayResults(const TArray<FGameResult>& InResults) const
@@ -173,5 +167,6 @@ void ATantrumnHUD::DisplayMatchStartCountDownTime(const float InMatchStartCountD
 
 void ATantrumnHUD::UpdateUIOnFinish() const
 {
-	if (GameLevelWidget){ GameLevelWidget->UpdateOnFinish(); }
+	if (GameLevelWidget)
+	{ GameLevelWidget->UpdateOnFinish(); }
 }

@@ -57,7 +57,7 @@ public:
 
 	/** Rescue State Accessor */
 	UFUNCTION(BlueprintPure, Category = "Tantrumn Movement")
-	bool IsBeingRescued() const { return bBeingRescued; }
+	bool IsBeingRescued() const { return bIsBeingRescued; }
 
 	/** Hover State Accessor */
 	UFUNCTION(BlueprintPure)
@@ -192,7 +192,7 @@ private:
 
 	/** Impact settings for when landing after fall or jump */
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")
-	float MinImpactSpeed = 500.0f;
+	float MinImpactSpeed = 600.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")
 	float MaxImpactSpeed = 1000.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")
@@ -203,20 +203,21 @@ private:
 	USoundCue* HeavyLandSound = nullptr;
 
 	/** Handle falling out of the world with rescue mechanics */
+	FVector_NetQuantize LastGroundLocation = FVector_NetQuantize::ZeroVector;
+	FVector RescueDestination = FVector::ZeroVector;
+	FVector FallOutOfWorldLocation = FVector::ZeroVector;
 	UPROPERTY(Replicated)
-	FVector LastGroundPosition = FVector::ZeroVector;
-	UPROPERTY(ReplicatedUsing = OnRep_IsBeingRescued)
-	bool bBeingRescued = false;
-	UFUNCTION()
-	void OnRep_IsBeingRescued();
+	bool bIsBeingRescued = false;
 	UPROPERTY(EditAnywhere, Category = "KillZ")
-	float TimeToRescuePlayer = 1.f;
-	FVector FallOutOfWorldPosition = FVector::ZeroVector;
-	float CurrentRescueTime = 0.0f;
-	/** These only happen on the server.  The variable bIsBeingRescued is replicated */
+	float RescuePlayerDurationSeconds = 1.0f;
+	float CurrentRescueTimeSeconds = 0.0f;
+	
 	void StartRescue();
-	void UpdateRescue(float DeltaTime);
-	void EndRescue();
+	UFUNCTION(NetMulticast, Reliable)
+	void NM_StartRescue(const FIntVector InFallOutOfWorldPosition, const FIntVector InRescueDestination);
+	void UpdateRescue(const float DeltaTimeSeconds);
+	UFUNCTION(NetMulticast, Reliable)
+	void NM_EndRescue();
 	
 	/** Reference to object which can be thrown */
 	UPROPERTY()

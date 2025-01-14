@@ -2,6 +2,7 @@
 
 #include "TantrumnGameStateBase.h"
 #include "Net/UnrealNetwork.h"
+#include "Net/Core/PushModel/PushModel.h"
 #include "Tantrumn/TantrumnCharacterBase.h"
 #include "Tantrumn/TantrumnPlayerController.h"
 #include "TantrumnPlayerState.h"
@@ -10,7 +11,7 @@ void ATantrumnGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	/** Pushed Rep with Notify - MARK_PROPERTY_DIRTY_FROM_NAME(ATantrumnGameStateBase, TestVar, this); */
+	/** Pushed Rep with Notify - MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, TestVar, this); */
 	FDoRepLifetimeParams PushedRepNotifyParams;
 	PushedRepNotifyParams.RepNotifyCondition = REPNOTIFY_Always;
 	PushedRepNotifyParams.bIsPushBased = true;
@@ -26,12 +27,11 @@ void ATantrumnGameStateBase::SetGameState(const ETantrumnGameState InGameState)
 {
 	OldTantrumnGameState = TantrumnGameState;
 	TantrumnGameState = InGameState;
-	MARK_PROPERTY_DIRTY_FROM_NAME(ATantrumnGameStateBase, TantrumnGameState, this);
-	// Manual invocation of OnRep_GameState so server will also run the method
+	MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, TantrumnGameState, this);
+	
+	/** Manual invocation of OnRep_GameState so server will also run the method */
 	if (HasAuthority())
-	{
-		OnRep_GameState();
-	}
+	{ OnRep_GameState(); }
 }
 
 void ATantrumnGameStateBase::OnRep_GameState() const
@@ -41,17 +41,16 @@ void ATantrumnGameStateBase::OnRep_GameState() const
 void ATantrumnGameStateBase::SetGameType(const ETantrumnGameType InGameType)
 {
 	TantrumnGameType = InGameType;
-	MARK_PROPERTY_DIRTY_FROM_NAME(ATantrumnGameStateBase, TantrumnGameType, this);
-	// Manual invocation of OnRep_GameState so server will also run the method
+	MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, TantrumnGameType, this);
+
+	/** Manual invocation of OnRep_GameState so server will also run the method */
 	if (HasAuthority())
-	{
-		OnRep_GameType();
-	}
+	{ OnRep_GameType(); }
 }
 
 void ATantrumnGameStateBase::OnRep_GameType() const
 {
-	// If Replicated with COND_SkipOwner then Authority will need to run this manually
+	/** If Replicated with COND_SkipOwner then Authority will need to run this manually */
 	OnGameTypeUpdateDelegate.Broadcast(TantrumnGameType);
 }
 
@@ -94,9 +93,7 @@ void ATantrumnGameStateBase::OnRep_ResultsUpdated()
 	{
 		if(const ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(
 			PlayerState->GetPlayerController()))
-		{
-			PlayerController->RequestDisplayFinalResults();
-		}
+		{ PlayerController->RequestDisplayFinalResults(); }
 	}
 }
 
@@ -111,10 +108,8 @@ bool ATantrumnGameStateBase::CheckAllResultsIn() const
 {
 	const uint8 FinalNumPlayers = PlayerArray.Num();
 	if (FinalNumPlayers > 0 && Results.Num() == FinalNumPlayers)
-	{
-		return true;
-	}
-	UE_LOG(LogTemp, Warning, TEXT("GameState CheckAllResults has %i Players and %i Results."), FinalNumPlayers, Results.Num());
+	{ return true; }
+	
 	return false;
 }
 
@@ -124,13 +119,11 @@ void ATantrumnGameStateBase::TryFinaliseScoreBoard()
 	{
 		/** Results Replication Is Pushed to Mark Dirty */
 		TantrumnGameState = ETantrumnGameState::GameOver;
-		MARK_PROPERTY_DIRTY_FROM_NAME(ATantrumnGameStateBase, Results, this);
-		MARK_PROPERTY_DIRTY_FROM_NAME(ATantrumnGameStateBase, TantrumnGameState, this);
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, Results, this);
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, TantrumnGameState, this);
 		
 		/** if running a local game then need to call the OnRep function manually */
 		if (HasAuthority() && !IsRunningDedicatedServer())
-		{
-			OnRep_ResultsUpdated();
-		}
+		{ OnRep_ResultsUpdated(); }
 	}
 }

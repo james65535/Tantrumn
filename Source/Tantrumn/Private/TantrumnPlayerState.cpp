@@ -30,9 +30,7 @@ void ATantrumnPlayerState::BeginPlay()
 		{
 			TantrumnPlayerController->SetTantrumnPlayerState(this);
 			if(!IsRunningDedicatedServer())
-			{
-				LoadSavedPlayerInfo();
-			}
+			{ LoadSavedPlayerInfo(); }
 		}
 		SetCurrentState(EPlayerGameState::Waiting);
 	}
@@ -40,10 +38,11 @@ void ATantrumnPlayerState::BeginPlay()
 
 void ATantrumnPlayerState::SetCurrentState(const EPlayerGameState PlayerGameState)
 {
-	if (!HasAuthority()){ return; }
+	if (!HasAuthority())
+	{ return; }
 	
 	CurrentState = PlayerGameState;
-	MARK_PROPERTY_DIRTY_FROM_NAME(ATantrumnPlayerState, CurrentState, this);
+	MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, CurrentState, this);
 
 	/** If Player is Ready then notify game mode */
 	if (PlayerGameState == EPlayerGameState::Ready)
@@ -55,22 +54,23 @@ void ATantrumnPlayerState::SetCurrentState(const EPlayerGameState PlayerGameStat
 	
 	if(const ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetOwner()))
 	{
+		// TODO check on if getcontroller will simplify this code
 		if (TantrumnPlayerController->IsLocalController())
 		{
 			if(const ATantrumnHUD* TantrumnHUD = Cast<ATantrumnHUD>(TantrumnPlayerController->GetHUD()))
-			{
-				TantrumnHUD->UpdateDisplayedPlayerState(CurrentState);
-			}
+			{ TantrumnHUD->UpdateDisplayedPlayerState(CurrentState); }
 		}
 	}
 }
 
+// TODO fix this regression bug causing map finish updates to not display
 void ATantrumnPlayerState::OnRep_CurrentState()
 {
+	if (!IsValid(GetOwningController()))
+	{ return; }
+	
 	if(const ATantrumnHUD* PlayerHud = Cast<ATantrumnHUD>(GetPlayerController()->GetHUD()))
-	{
-		PlayerHud->UpdateDisplayedPlayerState(CurrentState);
-	}
+	{ PlayerHud->UpdateDisplayedPlayerState(CurrentState); }
 }
 
 void ATantrumnPlayerState::OnRep_PlayerName()
@@ -78,14 +78,13 @@ void ATantrumnPlayerState::OnRep_PlayerName()
 	Super::OnRep_PlayerName();
 
 	if (const ATantrumnPlayerController* TantrumnPlayerController =  Cast<ATantrumnPlayerController>(GetPlayerController()))
-	{
-		TantrumnPlayerController->OnPlayerStateReceived.Broadcast();
-	}
+	{ TantrumnPlayerController->OnPlayerStateReceived.Broadcast(); }
 }
 
 void ATantrumnPlayerState::SavePlayerInfo()
 {
-	if (IsRunningDedicatedServer()){ return; }
+	if (IsRunningDedicatedServer())
+	{ return; }
 	
 	if (UTantrumnGeneralSaveGame* SaveGameInstance =
 		Cast<UTantrumnGeneralSaveGame>(UGameplayStatics::CreateSaveGameObject(UTantrumnGeneralSaveGame::StaticClass())))
