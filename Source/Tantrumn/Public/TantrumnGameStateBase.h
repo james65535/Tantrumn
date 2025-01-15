@@ -53,6 +53,8 @@ struct FGameResult
 DECLARE_MULTICAST_DELEGATE_OneParam(FGameTypeUpdateDelegate, ETantrumnGameType);
 /** Notify listeners match has started with the match start time */
 DECLARE_MULTICAST_DELEGATE_OneParam(FStartMatch, const float);
+/** Notify listeners Match Results have been updated */
+DECLARE_MULTICAST_DELEGATE(FMatchResultsUpdated);
 
 /*
  * Inherits from Actor so can replicate data
@@ -100,6 +102,8 @@ public:
 	float GetMatchDeltaTime() const { return GetServerWorldTimeSeconds() - MatchStartTime; }
 	
 	FGameTypeUpdateDelegate OnGameTypeUpdateDelegate;
+
+	FMatchResultsUpdated OnMatchResultsUpdated;
 	
 private:
 

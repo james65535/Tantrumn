@@ -4,7 +4,6 @@
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
 #include "Tantrumn/TantrumnCharacterBase.h"
-#include "Tantrumn/TantrumnPlayerController.h"
 #include "TantrumnPlayerState.h"
 
 void ATantrumnGameStateBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -57,6 +56,7 @@ void ATantrumnGameStateBase::OnRep_GameType() const
 void ATantrumnGameStateBase::ClearResults()
 {
 	Results.Empty();
+	MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, Results, this);
 }
 
 void ATantrumnGameStateBase::NM_MatchStart_Implementation()
@@ -65,7 +65,6 @@ void ATantrumnGameStateBase::NM_MatchStart_Implementation()
 	MatchStartTime = GetServerWorldTimeSeconds();
 	SetGameState(ETantrumnGameState::Playing);
 	OnStartMatchDelegate.Broadcast(MatchStartTime);
-	UE_LOG(LogTemp, Warning, TEXT("Gamestate match start time: %f"), MatchStartTime);
 }
 
 void ATantrumnGameStateBase::PlayerRequestSubmitResults(const ATantrumnCharacterBase* InTantrumnCharacter)
@@ -83,18 +82,17 @@ void ATantrumnGameStateBase::PlayerRequestSubmitResults(const ATantrumnCharacter
 			TantrumnPlayerState->SetIsWinner(IsWinner);
 			Result.bIsWinner = IsWinner;
 			Results.Add(Result);
+			MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, Results, this);
+			/** Manual invocation for local only play */
+			if (HasAuthority() && !IsRunningDedicatedServer())
+			{ OnRep_ResultsUpdated(); }
 		}
 	}
 }
 
 void ATantrumnGameStateBase::OnRep_ResultsUpdated()
 {
-	for (const TObjectPtr<APlayerState> PlayerState : PlayerArray)
-	{
-		if(const ATantrumnPlayerController* PlayerController = Cast<ATantrumnPlayerController>(
-			PlayerState->GetPlayerController()))
-		{ PlayerController->RequestDisplayFinalResults(); }
-	}
+	OnMatchResultsUpdated.Broadcast();
 }
 
 void ATantrumnGameStateBase::OnPlayerReachedEnd(ATantrumnCharacterBase* TantrumnCharacter)

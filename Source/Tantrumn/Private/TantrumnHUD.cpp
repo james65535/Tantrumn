@@ -130,10 +130,16 @@ void ATantrumnHUD::UpdateDisplayedPlayerState(const EPlayerGameState InPlayerSta
 	{ GameLevelWidget->UpdateDisplayedPlayerState(InPlayerState); }
 }
 
-void ATantrumnHUD::DisplayResults(const TArray<FGameResult>& InResults) const
+void ATantrumnHUD::DisplayMatchResultsMenu() const
 {
-	checkfSlow(LevelEndWidget, "PlayerHUD attempted to display results but LevelEndWidget was null")
-	LevelEndWidget->DisplayResults(InResults);
+	checkfSlow(LevelEndWidget, "PlayerHUD attempted to display match results menu but LevelEndWidget was null")
+	LevelEndWidget->DisplayMatchResultsMenu();
+}
+
+void ATantrumnHUD::UpdateMatchResultsMenu(const TArray<FGameResult>& InResults) const
+{
+	checkfSlow(LevelEndWidget, "PlayerHUD attempted to update match results but LevelEndWidget was null")
+	LevelEndWidget->UpdateMatchResultsMenu(InResults);
 }
 
 void ATantrumnHUD::RemoveResults()

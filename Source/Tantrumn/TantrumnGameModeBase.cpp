@@ -27,8 +27,7 @@ void ATantrumnGameModeBase::BeginPlay()
 	if (ATantrumnGameStateBase* TantrumnGameState = GetGameState<ATantrumnGameStateBase>())
 	{
 		TantrumnGameState->SetGameType(DesiredGameType);
-
-		// TODO replace with desiredgametype
+		
 		if(bToggleInitialMainMenu)
 		{ TantrumnGameState->SetGameState(ETantrumnGameState::None); }
 		else
@@ -38,7 +37,7 @@ void ATantrumnGameModeBase::BeginPlay()
 
 void ATantrumnGameModeBase::PlayerNotifyIsReady(ATantrumnPlayerState* InPlayerState)
 {
-	if(CheckAllPlayersStatus(EPlayerGameState::Ready))
+	if(CheckAllPlayersStatus(EPlayerGameState::Waiting))
 	{ AttemptStartGame(); }
 }
 
@@ -48,7 +47,7 @@ void ATantrumnGameModeBase::AttemptStartGame()
 	if (GameCountDownDuration > SMALL_NUMBER)
 	{
 		GetWorld()->GetTimerManager().SetTimer(DelayStartTimerHandle,
-			this, &ATantrumnGameModeBase::DisplayCountDown,
+			this, &ThisClass::DisplayCountDown,
 			DelayStartDuration,
 			false);
 	}
@@ -60,7 +59,7 @@ void ATantrumnGameModeBase::DisplayCountDown()
 {
 	/**
 	 * Perform Spectator Check prior to calling Game Countdown to minimise calls between
-	 * When Timer is started on server and when it is started on client
+	 * when Timer is started on server and when it is started on client
 	 */
 	TArray<ATantrumnPlayerController*> NonSpectatingPlayers;
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -74,7 +73,7 @@ void ATantrumnGameModeBase::DisplayCountDown()
 	
 	GetWorld()->GetTimerManager().SetTimer(
 		CountdownTimerHandle,
-		this, &ATantrumnGameModeBase::StartGame,
+		this, &ThisClass::StartGame,
 		GameCountDownDuration,
 		false);
 
@@ -145,7 +144,7 @@ void ATantrumnGameModeBase::RestartPlayer(AController* NewPlayer)
 		PlayerController->GetCharacter()->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 
 		if(ATantrumnPlayerState* PlayerState = PlayerController->GetPlayerState<ATantrumnPlayerState>())
-		{ PlayerState->SetCurrentState(EPlayerGameState::Waiting); }
+		{ PlayerState->SetCurrentState(EPlayerGameState::Unready); }
 	}
 }
 

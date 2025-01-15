@@ -70,7 +70,9 @@ public:
 	void UpdateUIOnFinish() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
-	void DisplayResults(const TArray<FGameResult>& InResults) const;
+	void DisplayMatchResultsMenu() const;
+	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
+	void UpdateMatchResultsMenu(const TArray<FGameResult>& InResults) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void RemoveResults();

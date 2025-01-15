@@ -66,12 +66,15 @@ public:
 	UPROPERTY(BlueprintReadOnly, VisibleAnywhere)
 	FText DisplayedMatchTime;
 
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
+	void DisplayMatchResultsMenu();
 	/**
 	 * Display Results of Finished Game
 	 * @param InResults A Collection of listings and if the corresponding listing is a winner
 	 */ 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
-	void DisplayResults(const TArray<FGameResult>& InResults);
+	void UpdateMatchResultsMenu(const TArray<FGameResult>& InResults);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tantrumn UI")
 	void RemoveResults();

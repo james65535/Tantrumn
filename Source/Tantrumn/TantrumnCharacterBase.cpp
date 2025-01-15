@@ -368,7 +368,7 @@ void ATantrumnCharacterBase::Landed(const FHitResult& Hit)
 {
 	Super::Landed(Hit);
 	
-	/** stun player if impact speed exceeds threshold abd Determine effects of fall based upon speed */
+	/** stun player if impact speed exceeds threshold and determine effects of fall based upon velocity */
 	const float FallImpactSpeed = FMath::Abs(GetVelocity().Z);
 	UE_LOG(LogTemp, Warning, TEXT("Character Landed with Fall Impact Speed: %f"), FallImpactSpeed);
 	if (FallImpactSpeed < MinImpactSpeed)
@@ -467,7 +467,7 @@ void ATantrumnCharacterBase::NM_EndRescue_Implementation()
 bool ATantrumnCharacterBase::IsHovering() const
 {
 	if (const ATantrumnPlayerState* TantrumnPlayerState = GetPlayerState<ATantrumnPlayerState>())
-	{ return TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Waiting; }
+	{ return TantrumnPlayerState->GetCurrentState() == EPlayerGameState::Unready; }
 
 	return false;
 }
@@ -758,6 +758,7 @@ void ATantrumnCharacterBase::NM_FinishedMatch_Implementation()
 	{ TantrumnPlayerController->FinishedMatch(); }
 	
 	GetCharacterMovement()->DisableMovement();
+	SetActorEnableCollision(false);
 	PlayCelebrateMontage();
 }
 
@@ -845,8 +846,7 @@ void ATantrumnCharacterBase::ApplyEffect_Implementation(EEffectType EffectType, 
 	{
 	case EEffectType::SPEED :
 		if(bIsEffectBuff)
-		{ TantrumnCharMoveComp->MaxWalkSpeed *= 2;
-		}
+		{ TantrumnCharMoveComp->MaxWalkSpeed *= 2; }
 		else
 		{ TantrumnCharMoveComp->DisableMovement(); }
 

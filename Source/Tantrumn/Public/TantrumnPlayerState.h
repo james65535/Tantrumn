@@ -15,8 +15,8 @@ UENUM()
 enum class EPlayerGameState : uint8
 {
 	None		UMETA(DisplayName = "None"),
+	Unready		UMETA(DisplayName = "Unready"),
 	Waiting		UMETA(DisplayName = "Waiting"),
-	Ready		UMETA(DisplayName = "Ready"),
 	Playing		UMETA(DisplayName = "Playing"),
 	Finished	UMETA(DisplayName = "Finished"),
 };

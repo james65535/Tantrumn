@@ -36,7 +36,8 @@ void ATantrumnPlayerController::BeginPlay()
 
 		/** If Local game as listener or single player then Grab Gametype, otherwise use delegate to update on replication */
 		UpdateHUDWithGameUIElements(TantrumnGameState->GetGameType());
-		TantrumnGameState->OnGameTypeUpdateDelegate.AddUObject(this, &ATantrumnPlayerController::UpdateHUDWithGameUIElements);
+		TantrumnGameState->OnGameTypeUpdateDelegate.AddUObject(this, &ThisClass::UpdateHUDWithGameUIElements);
+		TantrumnGameState->OnMatchResultsUpdated.AddUObject(this, &ThisClass::RequestDisplayFinalResults);
 	}
 
 	/* Set Enhanced Input Mapping Context to Game Context */
@@ -161,7 +162,8 @@ void ATantrumnPlayerController::S_OnReadySelected_Implementation()
 	if (GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>())
 	{
 		checkfSlow(TantrumnPlayerState, "Player Controller attempted to access tantrumn player state to set ready but it was null");
-		TantrumnPlayerState->SetCurrentState(EPlayerGameState::Ready);
+		TantrumnPlayerState->SetCurrentState(EPlayerGameState::Waiting);
+		NM_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
 	}
 }
 
@@ -201,14 +203,12 @@ void ATantrumnPlayerController::RequestHideLevelMenu()
 	{
 		SetInputContext(GameInputMapping);
 		PlayerHUD->HideLevelMenu();
-		// PlayerHUD->UpdateUIOnFinish(); // TODO remove?
 		NM_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
 	}
 }
 
 void ATantrumnPlayerController::StartMatchForPlayer(const float InMatchStartTime)
 {
-	NM_SetControllerGameInputMode(ETantrumnInputMode::GameOnly);
 	TantrumnPlayerState->SetCurrentState(EPlayerGameState::Playing);
 	CachedMatchStartTime = InMatchStartTime - GetWorld()->DeltaTimeSeconds;
 	if (!IsRunningDedicatedServer())
@@ -228,23 +228,27 @@ void ATantrumnPlayerController::HUDDisplayGameTimeElapsedSeconds() const
 
 void ATantrumnPlayerController::FinishedMatch()
 {
-	if (!IsRunningDedicatedServer())
-	{
-		GetWorld()->GetTimerManager().ClearTimer(MatchClockDisplayTimerHandle);
-		TantrumnPlayerState->SetCurrentState(EPlayerGameState::Finished);
-		SetInputContext(MenuInputMapping);
-		NM_SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
-		PlayerHUD->DisplayResults(TantrumnGameState->GetResults());
-		PlayerHUD->ToggleDisplayGameTime(false);
-	}
+	if (IsRunningDedicatedServer())
+	{ return; }
+
+	// TODO review if server should run this as well
+	GetWorld()->GetTimerManager().ClearTimer(MatchClockDisplayTimerHandle);
+	TantrumnPlayerState->SetCurrentState(EPlayerGameState::Finished);
+
+	// TODO review if this needs to be netmulticast
+	NM_SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
+
+	SetInputContext(MenuInputMapping);
+	PlayerHUD->ToggleDisplayGameTime(false);
+	PlayerHUD->DisplayMatchResultsMenu();
 }
 
 void ATantrumnPlayerController::RequestDisplayFinalResults() const
 {
-	if (!IsRunningDedicatedServer())
-	{
-		PlayerHUD->DisplayResults(TantrumnGameState->GetResults());
-	}
+	if (IsRunningDedicatedServer())
+	{ return; }
+	
+	PlayerHUD->UpdateMatchResultsMenu(TantrumnGameState->GetResults());
 }
 
 void ATantrumnPlayerController::ConnectToServer(const FString InServerAddress)
@@ -265,9 +269,7 @@ void ATantrumnPlayerController::S_RestartLevel_Implementation()
 {
 	ATantrumnGameModeBase* TantrumnGameMode = GetWorld()->GetAuthGameMode<ATantrumnGameModeBase>();
 	if (ensureMsgf(TantrumnGameMode, TEXT("ATantrumnPlayerController::ServerRestartLevel_Implementation Invalid Game Mode")))
-	{
-		TantrumnGameMode->RestartGame();
-	}
+	{ TantrumnGameMode->RestartGame(); }
 }
 
 void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -279,9 +281,7 @@ void ATantrumnPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason
 	if (const ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(Player))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* InputSystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
-		{
-			InputSystem->ClearAllMappings();
-		}
+		{ InputSystem->ClearAllMappings(); }
 	}
 }
 
@@ -306,9 +306,7 @@ void ATantrumnPlayerController::SetInputContext(TSoftObjectPtr<UInputMappingCont
 void ATantrumnPlayerController::RequestMove(const FInputActionValue& ActionValue)
 {
 	if (!CanProcessRequest())
-	{
-		return;
-	}
+	{ return; }
 	const FVector2d MoveAction = ActionValue.Get<FVector2d>();
 	const FRotator MoveRotation(0, GetControlRotation().Yaw, 0);
 	
@@ -341,85 +339,64 @@ void ATantrumnPlayerController::RequestLook(const FInputActionValue& ActionValue
 	if (LookAction.Y != 0.f)
 	{
 		if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-		{
-			TantrumnCharacter->AddControllerPitchInput(LookAction.Y);
-		}
+		{ TantrumnCharacter->AddControllerPitchInput(LookAction.Y); }
 	}
 
 	// Look left and right
 	if (LookAction.X != 0.f)
 	{
 		if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-		{
-			TantrumnCharacter->AddControllerYawInput(LookAction.X);
-		}
+		{ TantrumnCharacter->AddControllerYawInput(LookAction.X); }
 	}
 }
 
 void ATantrumnPlayerController::RequestJump()
 {
 	if (!CanProcessRequest())
-	{
-		return;
-	}
+	{ return; }
+	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-	{
-		TantrumnCharacter->Jump();
-	}
+	{ TantrumnCharacter->Jump(); }
 }
 
 void ATantrumnPlayerController::RequestStopJump()
 {
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-	{
-		TantrumnCharacter->StopJumping();
-	}
+	{ TantrumnCharacter->StopJumping(); }
 }
 
 void ATantrumnPlayerController::RequestCrouch()
 {
 	if (!CanProcessRequest())
-	{
-		return;
-	}
+	{ return; }
+	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-	{
-		TantrumnCharacter->Crouch();
-	}
+	{ TantrumnCharacter->Crouch(); }
 }
 
 void ATantrumnPlayerController::RequestStopCrouch()
 {
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-	{
-		TantrumnCharacter->UnCrouch();
-	}
+	{ TantrumnCharacter->UnCrouch(); }
 }
 
 void ATantrumnPlayerController::RequestSprint()
 {
 	if (!CanProcessRequest())
-	{
-		return;
-	}
+	{ return; }
 	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-	{
-		TantrumnCharacter->RequestSprintStart();
-	}
+	{ TantrumnCharacter->RequestSprintStart(); }
 }
 
 void ATantrumnPlayerController::RequestStopSprint()
 {
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-	{
-		TantrumnCharacter->RequestSprintEnd();
-	}
+	{ TantrumnCharacter->RequestSprintEnd(); }
 }
 
 void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& ActionValue)
 {
-	// Before we throw we need to check if character is allowed to throw
 	const float AxisValue = ActionValue.Get<float>();  // TODO check this works as intended
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
@@ -432,9 +409,7 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 			if (CVarDisplayLaunchInputDelta->GetBool())
 			{
 				if (fabs(CurrentDelta) > 0.0f)
-				{
-					UE_LOG(LogTemp, Warning, TEXT("Axis: %f CurrentDelta: %f"), AxisValue, LastAxis);
-				}
+				{ UE_LOG(LogTemp, Warning, TEXT("Axis: %f CurrentDelta: %f"), AxisValue, LastAxis); }
 			}
 			LastAxis = AxisValue;
 
@@ -444,25 +419,20 @@ void ATantrumnPlayerController::RequestThrowObject(const FInputActionValue& Acti
 			{
 				// Depending on mousewheel forward or back; throw or apply effect on ourselves
 				if (AxisValue > 0)
-				{
-					TantrumnCharacter->RequestThrowObject();
-				}
+				{ TantrumnCharacter->RequestThrowObject(); }
 				else
-				{
-					TantrumnCharacter->RequestUseObject();
-				}
+				{ TantrumnCharacter->RequestUseObject(); }
 			}
 		}
 		else
-		{
-			LastAxis = 0.0f;
-		}
+		{ LastAxis = 0.0f; }
 	}
 }
 
 void ATantrumnPlayerController::RequestHoldObject()
 {
-	if (!CanProcessRequest()){ return; }
+	if (!CanProcessRequest())
+	{ return; }
 	
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
 	{
@@ -475,9 +445,7 @@ void ATantrumnPlayerController::RequestHoldObject()
 void ATantrumnPlayerController::RequestStopHoldObject()
 {
 	if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(GetCharacter()))
-	{
-		TantrumnCharacter->RequestPullObjectStop();
-	}
+	{ TantrumnCharacter->RequestPullObjectStop(); }
 }
 
 void ATantrumnPlayerController::NM_SetControllerGameInputMode_Implementation(const ETantrumnInputMode InRequestedInputMode)

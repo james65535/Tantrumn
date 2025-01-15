@@ -32,7 +32,7 @@ void ATantrumnPlayerState::BeginPlay()
 			if(!IsRunningDedicatedServer())
 			{ LoadSavedPlayerInfo(); }
 		}
-		SetCurrentState(EPlayerGameState::Waiting);
+		SetCurrentState(EPlayerGameState::Unready);
 	}
 }
 
@@ -43,9 +43,9 @@ void ATantrumnPlayerState::SetCurrentState(const EPlayerGameState PlayerGameStat
 	
 	CurrentState = PlayerGameState;
 	MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, CurrentState, this);
-
+	
 	/** If Player is Ready then notify game mode */
-	if (PlayerGameState == EPlayerGameState::Ready)
+	if (PlayerGameState == EPlayerGameState::Waiting)
 	{
 		ATantrumnGameModeBase* TantrumnGameMode = Cast<ATantrumnGameModeBase>(GetWorld()->GetAuthGameMode());
 		check(TantrumnGameMode);
@@ -63,10 +63,9 @@ void ATantrumnPlayerState::SetCurrentState(const EPlayerGameState PlayerGameStat
 	}
 }
 
-// TODO fix this regression bug causing map finish updates to not display
 void ATantrumnPlayerState::OnRep_CurrentState()
 {
-	if (!IsValid(GetOwningController()))
+	if (!IsValid(GetPlayerController()))
 	{ return; }
 	
 	if(const ATantrumnHUD* PlayerHud = Cast<ATantrumnHUD>(GetPlayerController()->GetHUD()))
