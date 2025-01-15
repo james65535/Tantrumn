@@ -180,6 +180,8 @@ void ATantrumnPlayerController::UpdateHUDWithGameUIElements(ETantrumnGameType In
 	PlayerHUD->SetGameUIAssets(GameElementsRegistry->GameTypeUIMapping.Find(InGameType)->LoadSynchronous());
 }
 
+
+
 void ATantrumnPlayerController::SetPlayerName(const FString& InPlayerName)
 {
 	SetName(InPlayerName);
@@ -230,14 +232,9 @@ void ATantrumnPlayerController::FinishedMatch()
 {
 	if (IsRunningDedicatedServer())
 	{ return; }
-
-	// TODO review if server should run this as well
-	GetWorld()->GetTimerManager().ClearTimer(MatchClockDisplayTimerHandle);
-	TantrumnPlayerState->SetCurrentState(EPlayerGameState::Finished);
-
-	// TODO review if this needs to be netmulticast
+	
 	NM_SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
-
+	GetWorld()->GetTimerManager().ClearTimer(MatchClockDisplayTimerHandle);
 	SetInputContext(MenuInputMapping);
 	PlayerHUD->ToggleDisplayGameTime(false);
 	PlayerHUD->DisplayMatchResultsMenu();
@@ -263,6 +260,7 @@ void ATantrumnPlayerController::C_ResetPlayer_Implementation()
 	PlayerHUD->RemoveResults();
 	PlayerHUD->ToggleDisplayGameTime(false);
 	UpdateHUDWithGameUIElements(TantrumnGameState->GetGameType());
+	SetControllerGameInputMode(ETantrumnInputMode::UIOnly);
 }
 
 void ATantrumnPlayerController::S_RestartLevel_Implementation()
@@ -448,7 +446,7 @@ void ATantrumnPlayerController::RequestStopHoldObject()
 	{ TantrumnCharacter->RequestPullObjectStop(); }
 }
 
-void ATantrumnPlayerController::NM_SetControllerGameInputMode_Implementation(const ETantrumnInputMode InRequestedInputMode)
+void ATantrumnPlayerController::SetControllerGameInputMode(const ETantrumnInputMode InRequestedInputMode)
 {
 	switch (InRequestedInputMode)
 	{
@@ -475,6 +473,11 @@ void ATantrumnPlayerController::NM_SetControllerGameInputMode_Implementation(con
 			break;
 		}
 	}
+}
+
+void ATantrumnPlayerController::NM_SetControllerGameInputMode_Implementation(const ETantrumnInputMode InRequestedInputMode)
+{
+	SetControllerGameInputMode(InRequestedInputMode);
 }
 
 #pragma endregion CharacterControls

@@ -111,6 +111,8 @@ private:
 	UTantrumnGameElementsRegistry* GameElementsRegistry;
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")
 	void UpdateHUDWithGameUIElements(ETantrumnGameType InGameType);
+
+	void SetControllerGameInputMode(const ETantrumnInputMode InRequestedInputMode);
 	
 	/** Level Menu Display Requests */
 	UFUNCTION(BlueprintCallable, Category = "Tantrumn")

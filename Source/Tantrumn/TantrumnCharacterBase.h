@@ -192,7 +192,7 @@ private:
 
 	/** Impact settings for when landing after fall or jump */
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")
-	float MinImpactSpeed = 600.0f;
+	float MinImpactSpeed = 700.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")
 	float MaxImpactSpeed = 1000.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Fall")

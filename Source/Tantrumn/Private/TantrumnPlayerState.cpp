@@ -26,7 +26,7 @@ void ATantrumnPlayerState::BeginPlay()
 	
 	if (ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetPlayerController()))
 	{
-		if (!TantrumnPlayerController->TantrumnPlayerState)
+		if (!IsValid(TantrumnPlayerController->TantrumnPlayerState))
 		{
 			TantrumnPlayerController->SetTantrumnPlayerState(this);
 			if(!IsRunningDedicatedServer())
@@ -51,11 +51,11 @@ void ATantrumnPlayerState::SetCurrentState(const EPlayerGameState PlayerGameStat
 		check(TantrumnGameMode);
 		TantrumnGameMode->PlayerNotifyIsReady(this);
 	}
-	
-	if(const ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetOwner()))
+
+	/** For local only non-network mode */
+	if (!IsRunningDedicatedServer())
 	{
-		// TODO check on if getcontroller will simplify this code
-		if (TantrumnPlayerController->IsLocalController())
+		if(const ATantrumnPlayerController* TantrumnPlayerController = Cast<ATantrumnPlayerController>(GetOwner()))
 		{
 			if(const ATantrumnHUD* TantrumnHUD = Cast<ATantrumnHUD>(TantrumnPlayerController->GetHUD()))
 			{ TantrumnHUD->UpdateDisplayedPlayerState(CurrentState); }
