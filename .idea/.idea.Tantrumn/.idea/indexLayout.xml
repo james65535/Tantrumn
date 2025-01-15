@@ -4,6 +4,7 @@
     <attachedFolders />
     <explicitIncludes>
       <Path>Source/Tantrumn/NetTestServerClientLaunch.ps1</Path>
+      <Path>Source/Tantrumn/RunServerAndTwoClients.ps1</Path>
     </explicitIncludes>
     <explicitExcludes />
   </component>
