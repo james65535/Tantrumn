@@ -1,6 +1,6 @@
 ﻿# Project Tantrumn - Multi-Player Network Game
 
-![image info](./banner.png)
+![image info](./banner.jpg)
 
 ## Brief
 Tantrumn is a racing game (on foot, not car) developed as a solo school project which is part of the [CGSpectrum](https://www.cgspectrum.com/) Game Programming Curriculum. The game was designed to accommodate single player, multi-player split view, and networked multi-player modes. The player(s) can compete against each other or AI bots.
