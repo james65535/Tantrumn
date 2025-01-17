@@ -59,34 +59,25 @@ void AThrowableActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPri
 {
 	Super::NotifyHit(MyComp, Other, OtherComp, bSelfMoved, HitLocation, HitNormal, NormalImpulse, Hit);
 	if (State == EState::Idle || State == EState::Attached || State == EState::Dropped)
-	{
-		return;
-	}
+	{ return; }
 
 	// TODO implement different effects
 	if (State == EState::Launch)
 	{
 		if (IInteractInterface* InteractObject = Cast<IInteractInterface>(Other))
-		{
-			InteractObject->Execute_ApplyEffect(Other, EffectType, false);
-		}
+		{ InteractObject->Execute_ApplyEffect(Other, EffectType, false); }
 
 		const AActor* CurrentOwner = GetOwner();
 		if (CurrentOwner && CurrentOwner != Other)
 		{
 			if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(Other))
-			{
-				TantrumnCharacter->NotifyHitByThrowable(this);
-			}
+			{ TantrumnCharacter->NotifyHitByThrowable(this); }
 		}
 	}
 
 	
 	// Ignore all other hits
-	
 	// This will wait until the projectile comes to a natural stop before returning it to idle
-
-
 	if (PullActor && State == EState::Pull)
 	{
 		if (ATantrumnCharacterBase* TantrumnCharacter = Cast<ATantrumnCharacterBase>(PullActor))
@@ -118,9 +109,7 @@ void AThrowableActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPri
 void AThrowableActor::ProjectileStop(const FHitResult& ImpactResult)
 {
 	if (State == EState::Launch || State == EState::Dropped)
-	{
-		State = EState::Idle;
-	}
+	{ State = EState::Idle; }
 }
 
 // Configure object to home as a projectile to the pulling actor as a target
@@ -157,9 +146,7 @@ bool AThrowableActor::Pull(AActor* InActor)
 {
 	// Do not allow pull if object is already doing something else
 	if (State != EState::Idle)
-	{
-		return false;
-	}
+	{ return false; }
 
 	// If we can home to the puller then proceed with pull
 	if (SetHomingTarget(InActor))
@@ -204,9 +191,7 @@ void AThrowableActor::Launch(const FVector& InitialVelocity, AActor* Target)
 void AThrowableActor::Drop()
 {
 	if (State == EState::Attached || State == EState::Pull)
-	{
-		DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-	}
+	{ DetachFromActor(FDetachmentTransformRules::KeepWorldTransform); }
 
 	ProjectileMovementComponent->Activate(true);
 	ProjectileMovementComponent->Velocity = FVector(0.0f, 0.0f, ProjectileMovementComponent->GetGravityZ());
@@ -217,9 +202,7 @@ void AThrowableActor::Drop()
 void AThrowableActor::ToggleHighlight(bool bIsOn)
 {
 	if (StaticMeshComponent)
-	{
-		StaticMeshComponent->SetRenderCustomDepth(bIsOn);
-	}
+	{ StaticMeshComponent->SetRenderCustomDepth(bIsOn); }
 }
 
 EEffectType AThrowableActor::GetEffectType() const

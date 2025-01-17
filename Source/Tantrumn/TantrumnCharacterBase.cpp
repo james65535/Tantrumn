@@ -881,7 +881,7 @@ void ATantrumnCharacterBase::NotifyHitByThrowable(AThrowableActor* InThrowable)
 
 void ATantrumnCharacterBase::RequestUseObject()
 {
-	ApplyEffect(ThrowableActor->GetEffectType(), true);
+	Execute_ApplyEffect(this, ThrowableActor->GetEffectType(), true);
 	ThrowableActor->Destroy();
 	ResetThrowableObject();
 }
